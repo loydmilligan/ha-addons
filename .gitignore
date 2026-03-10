@@ -28,3 +28,22 @@ npm-debug.log*
 # Package manager locks (keep package-lock.json)
 yarn.lock
 pnpm-lock.yaml
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+.venv/
+env/
+*.egg-info/
+
+# Test/Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Local development
+.local/

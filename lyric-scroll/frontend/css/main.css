@@ -1,0 +1,167 @@
+/* Lyric Scroll - Main Styles */
+
+:root {
+    /* Dark theme (default) */
+    --bg-primary: #0a0a0a;
+    --bg-secondary: #1a1a1a;
+    --text-primary: #ffffff;
+    --text-secondary: #888888;
+    --text-dimmed: #444444;
+    --accent: #4a9eff;
+    --accent-glow: rgba(74, 158, 255, 0.3);
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html, body {
+    height: 100%;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    overflow: hidden;
+}
+
+#app {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+/* Lyrics Container */
+#lyrics-container {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 5%;
+    overflow: hidden;
+}
+
+#lyrics-content {
+    width: 100%;
+    max-width: 900px;
+    text-align: center;
+}
+
+.lyric-line {
+    font-size: 32px;
+    line-height: 1.6;
+    padding: 8px 0;
+    color: var(--text-dimmed);
+    transition: all 0.3s ease-out;
+}
+
+.lyric-line.current {
+    font-size: 48px;
+    font-weight: bold;
+    color: var(--text-primary);
+    text-shadow: 0 0 20px var(--accent-glow);
+}
+
+.lyric-line.past {
+    color: var(--text-secondary);
+}
+
+/* Status Message (idle, loading, no lyrics) */
+#status-message {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    color: var(--text-secondary);
+}
+
+#status-message .icon {
+    display: block;
+    font-size: 64px;
+    margin-bottom: 16px;
+    animation: pulse 2s ease-in-out infinite;
+}
+
+#status-text {
+    font-size: 24px;
+}
+
+#status-message.hidden {
+    display: none;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 1; }
+}
+
+/* Info Bar */
+#info-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 24px;
+    background-color: var(--bg-secondary);
+    border-top: 1px solid #333;
+}
+
+#track-info {
+    display: flex;
+    flex-direction: column;
+}
+
+#track-title {
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+#track-artist {
+    font-size: 14px;
+    color: var(--text-secondary);
+}
+
+#settings-btn {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+}
+
+#settings-btn:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .lyric-line {
+        font-size: 20px;
+    }
+
+    .lyric-line.current {
+        font-size: 28px;
+    }
+
+    #status-message .icon {
+        font-size: 48px;
+    }
+
+    #status-text {
+        font-size: 18px;
+    }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+    .lyric-line {
+        transition: none;
+    }
+
+    #status-message .icon {
+        animation: none;
+    }
+}
