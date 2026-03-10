@@ -64,9 +64,25 @@ class LyricScroll {
             case 'no_lyrics':
                 this.handleNoLyrics(message.data);
                 break;
+            case 'loading':
+                this.handleLoading(message.data);
+                break;
             case 'idle':
                 this.handleIdle();
                 break;
+        }
+    }
+
+    handleLoading(data) {
+        this.lyrics = [];
+        this.currentLineIndex = -1;
+        this.lyricsContent.innerHTML = '';
+        this.statusMessage.classList.remove('hidden');
+        this.statusText.textContent = 'Loading lyrics...';
+
+        if (data.track) {
+            this.trackTitle.textContent = data.track.title || '-';
+            this.trackArtist.textContent = data.track.artist || '-';
         }
     }
 
