@@ -534,25 +534,27 @@ class LyricScroll {
             ]);
 
             if (playersRes.ok) {
-                this.maPlayers = await playersRes.json();
+                const data = await playersRes.json();
+                this.maPlayers = data.players || [];
                 this.populateMAPlayers();
             }
 
             if (displaysRes.ok) {
-                this.maDisplays = await displaysRes.json();
+                const data = await displaysRes.json();
+                this.maDisplays = data.displays || [];
             }
 
             if (settingsRes.ok) {
                 const serverSettings = await settingsRes.json();
-                // Merge server settings with local settings
-                if (serverSettings.maPlayers) {
-                    this.settings.maPlayers = serverSettings.maPlayers;
+                // Merge server settings with local settings (server uses snake_case)
+                if (serverSettings.ma_players) {
+                    this.settings.maPlayers = serverSettings.ma_players;
                 }
-                if (serverSettings.maDefaultPlayer) {
-                    this.settings.maDefaultPlayer = serverSettings.maDefaultPlayer;
+                if (serverSettings.default_player) {
+                    this.settings.maDefaultPlayer = serverSettings.default_player;
                 }
-                if (serverSettings.maDisplayMappings) {
-                    this.settings.maDisplayMappings = serverSettings.maDisplayMappings;
+                if (serverSettings.display_mappings) {
+                    this.settings.maDisplayMappings = serverSettings.display_mappings;
                 }
                 this.updateMAUI();
             }
@@ -571,9 +573,9 @@ class LyricScroll {
 
         this.maPlayers.forEach(player => {
             const option = document.createElement('option');
-            option.value = player.id;
-            option.textContent = player.name || player.id;
-            if (this.settings.maPlayers.includes(player.id)) {
+            option.value = player.entity_id;
+            option.textContent = player.friendly_name || player.entity_id;
+            if (this.settings.maPlayers.includes(player.entity_id)) {
                 option.selected = true;
             }
             this.maPlayersSelect.appendChild(option);
@@ -589,12 +591,12 @@ class LyricScroll {
         const selectedPlayers = Array.from(this.maPlayersSelect.selectedOptions).map(opt => opt.value);
 
         selectedPlayers.forEach(playerId => {
-            const player = this.maPlayers.find(p => p.id === playerId);
+            const player = this.maPlayers.find(p => p.entity_id === playerId);
             if (player) {
                 const option = document.createElement('option');
-                option.value = player.id;
-                option.textContent = player.name || player.id;
-                if (this.settings.maDefaultPlayer === player.id) {
+                option.value = player.entity_id;
+                option.textContent = player.friendly_name || player.entity_id;
+                if (this.settings.maDefaultPlayer === player.entity_id) {
                     option.selected = true;
                 }
                 this.maDefaultPlayerSelect.appendChild(option);
@@ -632,14 +634,14 @@ class LyricScroll {
         }
 
         selectedPlayers.forEach(playerId => {
-            const player = this.maPlayers.find(p => p.id === playerId);
+            const player = this.maPlayers.find(p => p.entity_id === playerId);
             if (!player) return;
 
             const mappingDiv = document.createElement('div');
             mappingDiv.className = 'mapping-item';
 
             const label = document.createElement('label');
-            label.textContent = `${player.name || player.id}:`;
+            label.textContent = `${player.friendly_name || player.entity_id}:`;
 
             const select = document.createElement('select');
             select.className = 'ma-display-select';
@@ -654,9 +656,9 @@ class LyricScroll {
             // Add display options
             this.maDisplays.forEach(display => {
                 const option = document.createElement('option');
-                option.value = display.id;
-                option.textContent = display.name || display.id;
-                if (this.settings.maDisplayMappings[playerId] === display.id) {
+                option.value = display.entity_id;
+                option.textContent = display.friendly_name || display.entity_id;
+                if (this.settings.maDisplayMappings[playerId] === display.entity_id) {
                     option.selected = true;
                 }
                 select.appendChild(option);
@@ -682,9 +684,9 @@ class LyricScroll {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    maPlayers: this.settings.maPlayers,
-                    maDefaultPlayer: this.settings.maDefaultPlayer,
-                    maDisplayMappings: this.settings.maDisplayMappings
+                    ma_players: this.settings.maPlayers,
+                    default_player: this.settings.maDefaultPlayer,
+                    display_mappings: this.settings.maDisplayMappings
                 })
             });
 

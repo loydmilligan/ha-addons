@@ -137,6 +137,12 @@ html, body {
     font-family: monospace;
 }
 
+#version-label {
+    font-size: 12px;
+    opacity: 0.5;
+    margin-right: 8px;
+}
+
 #settings-btn {
     background: none;
     border: none;
