@@ -264,6 +264,189 @@ html, body {
     }
 }
 
+/* Theme: Light */
+.theme-light {
+    --bg-primary: #f5f5f5;
+    --bg-secondary: #ffffff;
+    --text-primary: #1a1a1a;
+    --text-secondary: #444444;
+    --text-dimmed: #888888;
+    --text-muted: #aaaaaa;
+    --accent: #0066cc;
+    --accent-glow: rgba(0, 102, 204, 0.3);
+}
+
+.theme-light #info-bar {
+    border-top-color: #ddd;
+}
+
+.theme-light #settings-btn:hover {
+    background-color: rgba(0, 0, 0, 0.1);
+}
+
+.theme-light #settings-panel {
+    border-left-color: #ddd;
+}
+
+.theme-light .settings-header,
+.theme-light .settings-section {
+    border-color: #ddd;
+}
+
+.theme-light .theme-btn {
+    border-color: #ccc;
+}
+
+.theme-light #settings-close:hover {
+    background-color: rgba(0, 0, 0, 0.1);
+}
+
+/* Theme: OLED */
+.theme-oled {
+    --bg-primary: #000000;
+    --bg-secondary: #000000;
+    --text-primary: #ffffff;
+    --text-secondary: #aaaaaa;
+    --text-dimmed: #666666;
+    --text-muted: #444444;
+    --accent: #00ff88;
+    --accent-glow: rgba(0, 255, 136, 0.4);
+}
+
+.theme-oled #info-bar {
+    border-top-color: #222;
+}
+
+/* Album art right position */
+#album-art-container.side.art-right {
+    left: auto;
+    right: 30px;
+}
+
+.has-side-art.art-right #lyrics-container {
+    padding-left: 5%;
+    padding-right: 240px;
+}
+
+/* Settings Panel */
+#settings-panel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 320px;
+    height: 100%;
+    background-color: var(--bg-secondary);
+    border-left: 1px solid #333;
+    z-index: 100;
+    overflow-y: auto;
+    transform: translateX(0);
+    transition: transform 0.3s ease-out;
+}
+
+#settings-panel.hidden {
+    transform: translateX(100%);
+}
+
+.settings-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px;
+    border-bottom: 1px solid #333;
+}
+
+.settings-header h2 {
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+#settings-close {
+    background: none;
+    border: none;
+    font-size: 20px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+}
+
+#settings-close:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.settings-section {
+    padding: 20px;
+    border-bottom: 1px solid #222;
+}
+
+.settings-section h3 {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 12px;
+}
+
+.settings-section label {
+    display: block;
+    color: var(--text-primary);
+    font-size: 14px;
+    margin-bottom: 8px;
+}
+
+.settings-section input[type="range"] {
+    width: 100%;
+    margin-top: 8px;
+    accent-color: var(--accent);
+}
+
+.settings-section select {
+    width: 100%;
+    padding: 8px 12px;
+    font-size: 14px;
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    border: 1px solid #444;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.settings-hint {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 8px;
+}
+
+.theme-buttons {
+    display: flex;
+    gap: 8px;
+}
+
+.theme-btn {
+    flex: 1;
+    padding: 10px;
+    font-size: 14px;
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    border: 1px solid #444;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.theme-btn:hover {
+    border-color: var(--accent);
+}
+
+.theme-btn.active {
+    background-color: var(--accent);
+    color: #000;
+    border-color: var(--accent);
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     .lyric-line {
@@ -313,6 +496,20 @@ html, body {
 
     #track-overlay .track-album {
         font-size: 14px;
+    }
+
+    /* Settings panel on mobile - full width */
+    #settings-panel {
+        width: 100%;
+    }
+
+    /* Album art right on mobile */
+    #album-art-container.side.art-right {
+        right: 16px;
+    }
+
+    .has-side-art.art-right #lyrics-container {
+        padding-right: 5%;
     }
 }
 

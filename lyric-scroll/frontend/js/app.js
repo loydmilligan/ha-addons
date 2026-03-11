@@ -1,6 +1,6 @@
 /**
  * Lyric Scroll - Frontend Application
- * Version: 0.3.0
+ * Version: 0.3.1
  */
 
 class LyricScroll {
@@ -20,6 +20,13 @@ class LyricScroll {
         this.albumArtState = 'hidden'; // hidden, fullscreen, side
         this.overlayTimeout = null;
 
+        // Settings (with defaults)
+        this.settings = {
+            theme: 'dark',
+            offsetMs: 0,
+            artPosition: 'left'  // left, right, hidden
+        };
+
         // DOM elements
         this.lyricsContent = document.getElementById('lyrics-content');
         this.statusMessage = document.getElementById('status-message');
@@ -34,12 +41,98 @@ class LyricScroll {
         // Track overlay elements
         this.trackOverlay = document.getElementById('track-overlay');
 
+        // Settings elements
+        this.settingsPanel = document.getElementById('settings-panel');
+        this.offsetSlider = document.getElementById('offset-slider');
+        this.offsetValue = document.getElementById('offset-value');
+        this.artPositionSelect = document.getElementById('art-position');
+
         this.init();
     }
 
     init() {
+        this.loadSettings();
+        this.applySettings();
         this.connect();
         this.setupEventListeners();
+    }
+
+    loadSettings() {
+        try {
+            const saved = localStorage.getItem('lyricScrollSettings');
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                this.settings = { ...this.settings, ...parsed };
+                console.log('Settings loaded:', this.settings);
+            }
+        } catch (e) {
+            console.error('Failed to load settings:', e);
+        }
+    }
+
+    saveSettings() {
+        try {
+            localStorage.setItem('lyricScrollSettings', JSON.stringify(this.settings));
+            console.log('Settings saved:', this.settings);
+        } catch (e) {
+            console.error('Failed to save settings:', e);
+        }
+    }
+
+    applySettings() {
+        // Apply theme
+        this.setTheme(this.settings.theme);
+
+        // Apply offset slider value
+        if (this.offsetSlider) {
+            this.offsetSlider.value = this.settings.offsetMs;
+            this.offsetValue.textContent = `${this.settings.offsetMs}ms`;
+        }
+
+        // Apply art position
+        if (this.artPositionSelect) {
+            this.artPositionSelect.value = this.settings.artPosition;
+        }
+        this.applyArtPosition();
+
+        // Update theme button active state
+        this.updateThemeButtons();
+    }
+
+    setTheme(theme) {
+        document.body.classList.remove('theme-dark', 'theme-light', 'theme-oled');
+        if (theme !== 'dark') {
+            document.body.classList.add(`theme-${theme}`);
+        }
+        this.settings.theme = theme;
+        this.updateThemeButtons();
+    }
+
+    updateThemeButtons() {
+        document.querySelectorAll('.theme-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.theme === this.settings.theme);
+        });
+    }
+
+    applyArtPosition() {
+        const position = this.settings.artPosition;
+        this.albumArtContainer.classList.remove('art-right');
+        document.body.classList.remove('art-right');
+
+        if (position === 'right') {
+            this.albumArtContainer.classList.add('art-right');
+            document.body.classList.add('art-right');
+        } else if (position === 'hidden') {
+            // Will be handled in showAlbumArt
+        }
+    }
+
+    openSettings() {
+        this.settingsPanel.classList.remove('hidden');
+    }
+
+    closeSettings() {
+        this.settingsPanel.classList.add('hidden');
     }
 
     connect() {
@@ -59,7 +152,7 @@ class LyricScroll {
             wsUrl = `${protocol}//${window.location.host}/ws`;
         }
 
-        console.log('Lyric Scroll v0.3.0 - Connecting to WebSocket:', wsUrl);
+        console.log('Lyric Scroll v0.3.1 - Connecting to WebSocket:', wsUrl);
         console.log('Location:', window.location.href);
 
         try {
@@ -252,10 +345,13 @@ class LyricScroll {
     }
 
     updateCurrentLine(positionMs) {
-        // Find the current line based on position
+        // Apply offset setting (positive = lyrics appear later, negative = earlier)
+        const adjustedPosition = positionMs + this.settings.offsetMs;
+
+        // Find the current line based on adjusted position
         let newIndex = -1;
         for (let i = this.lyrics.length - 1; i >= 0; i--) {
-            if (this.lyrics[i].timestamp_ms <= positionMs) {
+            if (this.lyrics[i].timestamp_ms <= adjustedPosition) {
                 newIndex = i;
                 break;
             }
@@ -296,7 +392,7 @@ class LyricScroll {
 
     // Album art display methods
     showAlbumArt(url, mode) {
-        if (!url) {
+        if (!url || this.settings.artPosition === 'hidden') {
             this.hideAlbumArt();
             return;
         }
@@ -306,6 +402,9 @@ class LyricScroll {
         this.albumArtContainer.classList.remove('hidden', 'fullscreen', 'side');
         this.albumArtContainer.classList.add(mode);
         this.albumArtState = mode;
+
+        // Apply position setting
+        this.applyArtPosition();
 
         // Update body class for lyrics container adjustment
         if (mode === 'side') {
@@ -374,9 +473,64 @@ class LyricScroll {
     }
 
     setupEventListeners() {
-        // Settings button (placeholder for now)
+        // Settings button - open panel
         document.getElementById('settings-btn').addEventListener('click', () => {
-            console.log('Settings clicked - not yet implemented');
+            this.openSettings();
+        });
+
+        // Settings close button
+        document.getElementById('settings-close').addEventListener('click', () => {
+            this.closeSettings();
+        });
+
+        // Close settings when clicking outside (on the main content)
+        document.getElementById('lyrics-container').addEventListener('click', () => {
+            if (!this.settingsPanel.classList.contains('hidden')) {
+                this.closeSettings();
+            }
+        });
+
+        // Theme buttons
+        document.querySelectorAll('.theme-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                this.setTheme(btn.dataset.theme);
+                this.saveSettings();
+            });
+        });
+
+        // Offset slider
+        this.offsetSlider.addEventListener('input', (e) => {
+            const value = parseInt(e.target.value, 10);
+            this.settings.offsetMs = value;
+            this.offsetValue.textContent = `${value}ms`;
+        });
+
+        this.offsetSlider.addEventListener('change', () => {
+            this.saveSettings();
+        });
+
+        // Album art position
+        this.artPositionSelect.addEventListener('change', (e) => {
+            this.settings.artPosition = e.target.value;
+            this.applyArtPosition();
+
+            // If changing to hidden while art is showing, hide it
+            if (e.target.value === 'hidden' && this.albumArtState !== 'hidden') {
+                this.hideAlbumArt();
+            }
+            // If changing from hidden to visible, show art if we have a URL
+            else if (e.target.value !== 'hidden' && this.albumArtUrl && this.albumArtState === 'hidden') {
+                this.showAlbumArt(this.albumArtUrl, 'side');
+            }
+
+            this.saveSettings();
+        });
+
+        // Keyboard shortcut to close settings (Escape)
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && !this.settingsPanel.classList.contains('hidden')) {
+                this.closeSettings();
+            }
         });
     }
 }
