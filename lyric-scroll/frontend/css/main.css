@@ -522,4 +522,57 @@ html, body {
     #status-message .icon {
         animation: none;
     }
+
+    #visualizer .viz-bar {
+        animation: none;
+    }
+}
+
+/* Audio Visualizer */
+#visualizer {
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 4px;
+    height: 120px;
+    margin-top: 30px;
+}
+
+#visualizer.hidden {
+    display: none;
+}
+
+.viz-bar {
+    width: 8px;
+    background: linear-gradient(to top, var(--accent), var(--accent-glow));
+    border-radius: 4px;
+    animation: visualize 1.2s ease-in-out infinite;
+}
+
+.viz-bar:nth-child(1) { animation-delay: 0.0s; height: 20px; }
+.viz-bar:nth-child(2) { animation-delay: 0.1s; height: 35px; }
+.viz-bar:nth-child(3) { animation-delay: 0.2s; height: 50px; }
+.viz-bar:nth-child(4) { animation-delay: 0.3s; height: 65px; }
+.viz-bar:nth-child(5) { animation-delay: 0.4s; height: 80px; }
+.viz-bar:nth-child(6) { animation-delay: 0.5s; height: 95px; }
+.viz-bar:nth-child(7) { animation-delay: 0.6s; height: 100px; }
+.viz-bar:nth-child(8) { animation-delay: 0.7s; height: 95px; }
+.viz-bar:nth-child(9) { animation-delay: 0.6s; height: 100px; }
+.viz-bar:nth-child(10) { animation-delay: 0.5s; height: 95px; }
+.viz-bar:nth-child(11) { animation-delay: 0.4s; height: 80px; }
+.viz-bar:nth-child(12) { animation-delay: 0.3s; height: 65px; }
+.viz-bar:nth-child(13) { animation-delay: 0.2s; height: 50px; }
+.viz-bar:nth-child(14) { animation-delay: 0.1s; height: 35px; }
+.viz-bar:nth-child(15) { animation-delay: 0.0s; height: 20px; }
+.viz-bar:nth-child(16) { animation-delay: 0.1s; height: 30px; }
+
+@keyframes visualize {
+    0%, 100% {
+        transform: scaleY(0.3);
+        opacity: 0.6;
+    }
+    50% {
+        transform: scaleY(1);
+        opacity: 1;
+    }
 }

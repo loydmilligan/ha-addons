@@ -1,6 +1,6 @@
 /**
  * Lyric Scroll - Frontend Application
- * Version: 0.3.2
+ * Version: 0.3.3
  */
 
 class LyricScroll {
@@ -152,7 +152,7 @@ class LyricScroll {
             wsUrl = `${protocol}//${window.location.host}/ws`;
         }
 
-        console.log('Lyric Scroll v0.3.2 - Connecting to WebSocket:', wsUrl);
+        console.log('Lyric Scroll v0.3.3 - Connecting to WebSocket:', wsUrl);
         console.log('Location:', window.location.href);
 
         try {
@@ -238,6 +238,7 @@ class LyricScroll {
         console.log(`Loaded ${this.lyrics.length} lyrics lines, synced: ${data.synced}`);
 
         this.statusMessage.classList.add('hidden');
+        this.showVisualizer(false);
 
         // Handle album art
         if (data.track?.album_art_url) {
@@ -308,6 +309,9 @@ class LyricScroll {
         this.statusMessage.classList.remove('hidden');
         this.statusText.textContent = 'No lyrics available';
 
+        // Show visualizer when no lyrics
+        this.showVisualizer(true);
+
         if (data.track) {
             this.trackTitle.textContent = data.track.title || '-';
             this.trackArtist.textContent = data.track.artist || '-';
@@ -333,9 +337,10 @@ class LyricScroll {
         this.trackTitle.textContent = '-';
         this.trackArtist.textContent = '-';
 
-        // Hide album art and track overlay
+        // Hide album art, track overlay, and visualizer
         this.hideAlbumArt();
         this.hideTrackOverlay();
+        this.showVisualizer(false);
     }
 
     renderLyrics() {
@@ -470,6 +475,18 @@ class LyricScroll {
         }
         this.trackOverlay.classList.add('hidden');
         this.trackOverlay.classList.remove('fade-out');
+    }
+
+    // Visualizer for no-lyrics mode
+    showVisualizer(show) {
+        const visualizer = document.getElementById('visualizer');
+        if (visualizer) {
+            if (show) {
+                visualizer.classList.remove('hidden');
+            } else {
+                visualizer.classList.add('hidden');
+            }
+        }
     }
 
     setupEventListeners() {

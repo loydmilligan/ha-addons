@@ -15,6 +15,7 @@ from models import TrackInfo, PlaybackState, Lyrics
 from ha_client import HAClient
 from lyrics_fetcher import LyricsFetcher
 from cache import LyricsCache
+from missing_lyrics import MissingLyricsTracker
 
 # Configure logging
 logging.basicConfig(
@@ -32,6 +33,7 @@ class LyricScrollApp:
         self.cache = LyricsCache()
         self.fetcher = LyricsFetcher(self.cache)
         self.ha_client: Optional[HAClient] = None
+        self.missing_lyrics = MissingLyricsTracker()
 
         self.current_track: Optional[TrackInfo] = None
         self.current_lyrics: Optional[Lyrics] = None
@@ -139,6 +141,16 @@ class LyricScrollApp:
             })
         else:
             self.current_lyrics = None
+
+            # Track this song as missing lyrics
+            self.missing_lyrics.add(
+                artist=track.artist,
+                title=track.title,
+                album=track.album,
+                album_art_url=track.album_art_url,
+                entity_id=self.active_entity or ""
+            )
+
             await self.broadcast({
                 "type": "no_lyrics",
                 "data": {
@@ -236,6 +248,36 @@ class LyricScrollApp:
         """Serve the main HTML page."""
         return web.FileResponse('/frontend/index.html')
 
+    async def api_missing_lyrics(self, request: web.Request) -> web.Response:
+        """Get list of tracks with missing lyrics."""
+        return web.json_response({
+            "count": self.missing_lyrics.get_count(),
+            "tracks": self.missing_lyrics.get_all()
+        })
+
+    async def api_missing_lyrics_delete(self, request: web.Request) -> web.Response:
+        """Remove a track from missing lyrics list."""
+        try:
+            data = await request.json()
+            artist = data.get("artist", "")
+            title = data.get("title", "")
+
+            if not artist or not title:
+                return web.json_response(
+                    {"error": "artist and title required"},
+                    status=400
+                )
+
+            removed = self.missing_lyrics.remove(artist, title)
+            return web.json_response({"success": removed})
+        except Exception as e:
+            return web.json_response({"error": str(e)}, status=500)
+
+    async def api_missing_lyrics_clear(self, request: web.Request) -> web.Response:
+        """Clear all missing lyrics entries."""
+        self.missing_lyrics.clear()
+        return web.json_response({"success": True})
+
     def create_app(self) -> web.Application:
         """Create and configure the aiohttp application."""
         app = web.Application()
@@ -245,6 +287,11 @@ class LyricScrollApp:
         app.router.add_get('/ws', self.websocket_handler)
         app.router.add_static('/css', '/frontend/css')
         app.router.add_static('/js', '/frontend/js')
+
+        # API routes
+        app.router.add_get('/api/missing-lyrics', self.api_missing_lyrics)
+        app.router.add_delete('/api/missing-lyrics', self.api_missing_lyrics_delete)
+        app.router.add_post('/api/missing-lyrics/clear', self.api_missing_lyrics_clear)
 
         return app
 
