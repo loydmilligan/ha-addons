@@ -146,12 +146,20 @@ class HAClient:
         duration_sec = attributes.get("media_duration", 0) or 0
         content_type = attributes.get("media_content_type", "")
 
-        # Get album art URL - try multiple attribute names
-        album_art_url = (
-            attributes.get("entity_picture", "") or
-            attributes.get("media_image_url", "") or
-            ""
-        )
+        # Get album art URL - prefer direct URLs over HA proxy URLs
+        # media_image_url is usually a direct CDN URL (e.g., Spotify)
+        # entity_picture is an HA proxy URL that requires authentication
+        media_image_url = attributes.get("media_image_url", "") or ""
+        entity_picture = attributes.get("entity_picture", "") or ""
+
+        # Prefer direct URLs (http/https) over relative HA proxy URLs
+        if media_image_url.startswith("http"):
+            album_art_url = media_image_url
+        elif entity_picture.startswith("http"):
+            album_art_url = entity_picture
+        else:
+            # Fallback: use whatever we have (might not work in addon context)
+            album_art_url = media_image_url or entity_picture
 
         if title or artist:
             # Year might be int or str
