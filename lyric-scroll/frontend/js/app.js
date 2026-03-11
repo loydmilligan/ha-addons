@@ -26,8 +26,10 @@ class LyricScroll {
 
     connect() {
         // Determine WebSocket URL based on current location
+        // Must include full path for HA ingress to route correctly
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsUrl = `${protocol}//${window.location.host}/ws`;
+        const basePath = window.location.pathname.replace(/\/$/, ''); // Remove trailing slash
+        const wsUrl = `${protocol}//${window.location.host}${basePath}/ws`;
 
         console.log('Connecting to WebSocket:', wsUrl);
         this.ws = new WebSocket(wsUrl);
