@@ -41,7 +41,7 @@ class LyricScroll {
             wsUrl = `${protocol}//${window.location.host}/ws`;
         }
 
-        console.log('Lyric Scroll v0.1.6 - Connecting to WebSocket:', wsUrl);
+        console.log('Lyric Scroll v0.2.0 - Connecting to WebSocket:', wsUrl);
         console.log('Location:', window.location.href);
 
         try {
@@ -119,6 +119,13 @@ class LyricScroll {
     handlePosition(data) {
         const positionMs = data.position_ms;
         this.state = data.state;
+
+        // Debug: log position and first few lyric timestamps
+        if (this.lyrics.length > 0) {
+            const firstTs = this.lyrics[0]?.timestamp_ms;
+            const lastTs = this.lyrics[this.lyrics.length - 1]?.timestamp_ms;
+            console.log(`Position: ${positionMs}ms (${(positionMs/1000).toFixed(1)}s), Lyrics range: ${firstTs}-${lastTs}ms`);
+        }
 
         if (this.state === 'playing' && this.lyrics.length > 0) {
             this.updateCurrentLine(positionMs);
