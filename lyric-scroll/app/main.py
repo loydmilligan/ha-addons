@@ -37,45 +37,62 @@ class LyricScrollApp:
         self.current_lyrics: Optional[Lyrics] = None
         self.current_state: str = "idle"
         self.current_position_ms: int = 0
+        self.active_entity: Optional[str] = None  # Which media_player we're tracking
 
     async def on_state_change(self, state: PlaybackState) -> None:
         """Handle media player state changes from HA."""
-        logger.debug(f"State change: {state.entity_id} -> {state.state}")
+        # Only process if this entity is playing, or if it's our active entity
+        is_playing = state.state == "playing"
+        is_active_entity = state.entity_id == self.active_entity
 
-        # Update position
-        self.current_position_ms = state.position_ms
-        self.current_state = state.state
-
-        # Check for track change
-        if state.track and state.track != self.current_track:
+        # If something else starts playing, switch to it
+        if is_playing and state.track:
             # Filter out non-music content
             if not state.track.is_likely_music():
-                logger.info(
-                    f"Skipping non-music content: {state.track.artist} - {state.track.title} "
+                logger.debug(
+                    f"Skipping non-music: {state.track.artist} - {state.track.title} "
                     f"(type={state.track.content_type}, duration={state.track.duration_ms/1000:.0f}s)"
                 )
                 return
 
-            logger.info(f"Track change: {state.track.artist} - {state.track.title}")
-            self.current_track = state.track
-            await self._fetch_and_broadcast_lyrics(state.track)
+            # New track or different entity started playing
+            if state.track != self.current_track or not is_active_entity:
+                logger.info(f"Now playing on {state.entity_id}: {state.track.artist} - {state.track.title}")
+                self.active_entity = state.entity_id
+                self.current_track = state.track
+                self.current_state = state.state
+                self.current_position_ms = state.position_ms
+                await self._fetch_and_broadcast_lyrics(state.track)
+            else:
+                # Same track, just update position
+                self.current_position_ms = state.position_ms
+                self.current_state = state.state
 
-        elif state.state in ("idle", "off", "unavailable") or not state.track:
-            if self.current_track is not None:
-                logger.info("Playback stopped")
-                self.current_track = None
-                self.current_lyrics = None
-                await self.broadcast({"type": "idle"})
+            # Broadcast position update
+            if self.current_lyrics:
+                await self.broadcast({
+                    "type": "position",
+                    "data": {
+                        "position_ms": state.position_ms,
+                        "state": state.state
+                    }
+                })
 
-        # Broadcast position update
-        if state.state == "playing" and self.current_lyrics:
-            await self.broadcast({
-                "type": "position",
-                "data": {
-                    "position_ms": state.position_ms,
-                    "state": state.state
-                }
-            })
+        # If our active entity stopped playing
+        elif is_active_entity and state.state in ("idle", "off", "unavailable", "paused"):
+            if state.state == "paused":
+                # Just paused, keep lyrics but update state
+                self.current_state = state.state
+                logger.debug(f"Playback paused on {state.entity_id}")
+            else:
+                # Stopped completely
+                if self.current_track is not None:
+                    logger.info(f"Playback stopped on {state.entity_id}")
+                    self.current_track = None
+                    self.current_lyrics = None
+                    self.active_entity = None
+                    self.current_state = "idle"
+                    await self.broadcast({"type": "idle"})
 
     async def _fetch_and_broadcast_lyrics(self, track: TrackInfo) -> None:
         """Fetch lyrics for a track and broadcast to clients."""
@@ -146,7 +163,7 @@ class LyricScrollApp:
         await ws.prepare(request)
 
         self.clients.add(ws)
-        logger.info(f"Client connected. Total clients: {len(self.clients)}")
+        logger.info(f"WebSocket client connected from {request.remote}. Total clients: {len(self.clients)}")
 
         try:
             # Send current state to new client
