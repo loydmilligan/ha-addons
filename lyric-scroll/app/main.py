@@ -18,7 +18,6 @@ from lyrics_fetcher import LyricsFetcher
 from cache import LyricsCache
 from missing_lyrics import MissingLyricsTracker
 from ma_client import MAClient
-from cast_client import cast_url_to_ip
 
 # Supervisor API for image proxy
 SUPERVISOR_TOKEN = os.environ.get("SUPERVISOR_TOKEN", "")
@@ -368,12 +367,6 @@ class LyricScrollApp:
             logger.debug(f"No display mapped for {player_entity_id}")
             return
 
-        # Get display IP address from settings
-        display_ip = self.settings.get("display_ips", {}).get(display_id)
-        if not display_ip:
-            logger.warning(f"No IP address configured for {display_id}. Add it in settings display_ips.")
-            return
-
         # Get display state from HA
         display_state = await self.ha_client.get_entity_state(display_id)
         if not display_state:
@@ -385,15 +378,42 @@ class LyricScrollApp:
             logger.info(f"Display {display_id} is busy ({current_state}), skipping autocast")
             return
 
-        # Cast the URL using pychromecast directly
+        # Cast the URL using HA service call
         cast_url = self.settings.get("autocast_url", "http://192.168.6.8:8099")
-        logger.info(f"Attempting to cast {cast_url} to {display_id} ({display_ip})")
+        logger.info(f"Attempting to cast {cast_url} to {display_id}")
 
-        success = cast_url_to_ip(display_ip, cast_url)
-        if success:
+        # Try HA's cast integration with show_lovelace_view first (for dashboards)
+        # If that fails, try media_player.play_media with different content types
+
+        # First try: cast service with URL
+        result = await self.ma_client._call_service(
+            "cast",
+            "show_lovelace_view",
+            {
+                "entity_id": display_id,
+                "view_path": cast_url
+            }
+        )
+        logger.info(f"Cast show_lovelace_view result: {result}")
+
+        # If that didn't work, try media_player with video type
+        if "error" in result or not result:
+            logger.info("Trying media_player.play_media fallback...")
+            result = await self.ma_client._call_service(
+                "media_player",
+                "play_media",
+                {
+                    "entity_id": display_id,
+                    "media_content_id": cast_url,
+                    "media_content_type": "video/mp4"
+                }
+            )
+            logger.info(f"play_media result: {result}")
+
+        if "error" not in result and result:
             logger.info(f"Auto-cast successful to {display_id}")
         else:
-            logger.warning(f"Auto-cast failed for {display_id}")
+            logger.warning(f"Auto-cast failed for {display_id}: {result}")
 
     # ========== Settings API ==========
 
