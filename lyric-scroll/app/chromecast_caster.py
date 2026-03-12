@@ -190,6 +190,10 @@ class ChromecastCaster:
         """Display a text message on the receiver."""
         return self._send_message({"message": message})
 
+    def send_data(self, data: dict) -> bool:
+        """Send arbitrary data dict to the receiver."""
+        return self._send_message(data)
+
     def set_background(self, css_background: str) -> bool:
         """Change the receiver's background (CSS value)."""
         return self._send_message({"background": css_background})
