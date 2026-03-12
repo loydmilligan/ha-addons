@@ -1,5 +1,86 @@
 # Receiver Fallback Page Design
 
+## Current Working Architecture (IMPORTANT CONTEXT)
+
+### How Chromecast Casting Works Now
+
+We got casting working using **PyChromecast** (Python library) with a **Custom Receiver** app registered with Google.
+
+**The key insight:** You cannot cast arbitrary web content to a Chromecast using Home Assistant's built-in cast service (`cast.show_lovelace_view`). That service only works for Lovelace dashboard views, not external URLs.
+
+**What we built instead:**
+
+1. **Custom Receiver App** - Registered with Google Cast Developer Console
+   - App ID: `76719249`
+   - Receiver URL: `http://192.168.4.158:9123/receiver.html`
+   - The receiver is a simple HTML page with an iframe that loads any URL we send it
+
+2. **Receiver Deployment** - Docker container on Pi (piUSBcam)
+   - Repo: https://github.com/loydmilligan/cast-receiver
+   - Runs on port 9123
+   - Serves the receiver HTML that runs ON the Chromecast
+
+3. **PyChromecast in Addon** - Direct connection to Chromecast
+   - Bypasses Home Assistant's cast integration entirely
+   - Connects directly to Chromecast by IP address
+   - Launches our custom receiver app
+   - Sends messages to load URLs in the iframe
+
+### Message Flow
+
+```
+┌─────────────────┐         ┌─────────────────┐         ┌─────────────────┐
+│  Lyric Scroll   │         │   Chromecast    │         │  Pi Container   │
+│  Addon (HA)     │         │    Device       │         │  (Receiver)     │
+│                 │         │  192.168.5.187  │         │ 192.168.4.158   │
+│                 │         │                 │         │                 │
+│ 1. PyChromecast ├────────►│ 2. Fetches      ├────────►│ 3. Serves       │
+│    connects     │         │    receiver.html│         │    receiver.html│
+│                 │         │                 │         │                 │
+│ 4. Sends msg:   ├────────►│ 5. Receiver JS  │         │                 │
+│    {loadUrl:    │         │    loads URL    │         │                 │
+│     "...8099"}  │         │    in iframe    │         │                 │
+│                 │         │                 │         │                 │
+│                 │         │ 6. Iframe shows │◄────────┤                 │
+│                 │         │    lyrics page  │ (fetch) │                 │
+└─────────────────┘         └─────────────────┘         └─────────────────┘
+```
+
+### Key Files in Current Implementation
+
+| File | Location | Purpose |
+|------|----------|---------|
+| `chromecast_caster.py` | `lyric-scroll/app/` | PyChromecast wrapper for addon |
+| `main.py` | `lyric-scroll/app/` | Calls caster on music play |
+| `receiver.html` | `cast-receiver/public/` | Runs ON Chromecast, has iframe |
+| `server.js` | `cast-receiver/src/` | Serves receiver from Pi |
+
+### Why This Approach Works
+
+1. **PyChromecast** - No browser needed, works from Python backend
+2. **Custom Receiver** - Full control over what displays on Chromecast
+3. **Iframe Architecture** - Receiver is a shell, can load ANY URL
+4. **Direct Connection** - Bypasses HA cast integration issues
+
+### Settings That Make It Work
+
+```json
+{
+  "autocast_enabled": true,
+  "chromecast_ip": "192.168.5.187",
+  "autocast_url": "http://192.168.6.8:8099",
+  "cast_app_id": "76719249"
+}
+```
+
+### Test Device Registration
+
+Chromecasts must be registered in Google Cast Console as test devices (since app is unpublished):
+- Serial: `6920103PYB5A` (Old Stick Chromecast)
+- Requires Chromecast reboot after registration
+
+---
+
 ## Overview
 
 The Chromecast receiver (`http://192.168.4.158:9123/receiver.html`) displays a fallback "clock" page when not showing lyrics. This document explains how to enhance that page with dynamic content like a custom title and recently played tracks with album art.
