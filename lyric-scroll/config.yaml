@@ -1,5 +1,5 @@
 name: Lyric Scroll
-version: "0.4.8"
+version: "0.4.9"
 slug: lyric_scroll
 description: Display synchronized karaoke-style lyrics for currently playing music
 url: https://github.com/loydmilligan/lyric-scroll
@@ -18,7 +18,7 @@ ports:
   8099/tcp: 8099
 ports_description:
   8099/tcp: Direct web UI access (optional, use ingress normally)
-host_network: false
+host_network: true
 homeassistant_api: true
 hassio_api: true
 auth_api: true
