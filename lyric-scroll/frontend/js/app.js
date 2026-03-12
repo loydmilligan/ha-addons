@@ -606,16 +606,21 @@ class LyricScroll {
     }
 
     initCast() {
-        // Only initialize if we have an app ID
+        // Button is always visible, but mark as unavailable if no app ID
         if (!this.settings.castAppId) {
             console.log('No Cast App ID configured');
-            if (this.castBtn) this.castBtn.classList.add('hidden');
+            if (this.castBtn) {
+                this.updateCastUI('unavailable', 'Cast App ID required');
+            }
             return;
         }
 
         // Check if Cast SDK is available (only works in Chrome)
         if (typeof cast === 'undefined' || typeof chrome === 'undefined' || !chrome.cast) {
             console.log('Cast SDK not available (not Chrome or extension disabled)');
+            if (this.castBtn) {
+                this.updateCastUI('unavailable', 'Cast SDK not available');
+            }
             return;
         }
 
@@ -631,31 +636,28 @@ class LyricScroll {
                 }
             };
 
-            // Show cast button
-            if (this.castBtn) this.castBtn.classList.remove('hidden');
+            // Update UI with ready state
+            this.updateCastUI('ready', 'Cast to Chromecast');
         } catch (err) {
             console.error('Failed to initialize Cast:', err);
+            if (this.castBtn) {
+                this.updateCastUI('error', 'Cast initialization failed');
+            }
         }
     }
 
     updateCastUI(state, message) {
         if (!this.castBtn) return;
 
-        const statusEl = this.castBtn.querySelector('.cast-status');
-
         this.castBtn.dataset.state = state;
-        if (statusEl) {
-            if (state === 'connected') {
-                statusEl.textContent = message.replace('Connected to ', '');
-            } else {
-                statusEl.textContent = 'Cast';
-            }
-        }
+        this.castBtn.title = message;  // Show status in tooltip
 
+        // Update classes
+        this.castBtn.classList.remove('connected', 'unavailable');
         if (state === 'connected') {
             this.castBtn.classList.add('connected');
-        } else {
-            this.castBtn.classList.remove('connected');
+        } else if (state === 'unavailable' || state === 'error') {
+            this.castBtn.classList.add('unavailable');
         }
     }
 

@@ -157,48 +157,43 @@ html, body {
     background-color: rgba(255, 255, 255, 0.1);
 }
 
-/* Cast Button */
+/* Cast Button - Icon Style */
 .cast-btn {
     display: flex;
     align-items: center;
-    gap: 6px;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
     background: transparent;
-    border: 1px solid var(--text-muted, #666);
-    border-radius: 4px;
-    padding: 6px 12px;
-    color: var(--text-secondary, #aaa);
-    font-size: 14px;
+    border: none;
+    border-radius: 50%;
+    color: var(--text-muted, #666);
     cursor: pointer;
     transition: all 0.2s ease;
-    margin-right: 10px;
+    margin-right: 8px;
 }
 
 .cast-btn:hover {
-    border-color: var(--accent, #00d4ff);
-    color: var(--accent, #00d4ff);
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-primary, #fff);
 }
 
 .cast-btn.connected {
-    border-color: var(--accent, #00d4ff);
-    background-color: var(--accent, #00d4ff);
-    color: #000;
+    color: var(--accent, #00d4ff);
 }
 
-.cast-btn.hidden {
-    display: none;
+.cast-btn.connected:hover {
+    background: rgba(0, 212, 255, 0.1);
 }
 
-.cast-btn .cast-icon::before {
-    content: "📺";
-    font-size: 16px;
+.cast-btn.unavailable {
+    opacity: 0.3;
+    cursor: not-allowed;
 }
 
-.cast-btn .cast-status {
-    font-size: 12px;
-    max-width: 100px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+.cast-btn .cast-icon {
+    width: 20px;
+    height: 20px;
 }
 
 /* Cast App ID Input */
