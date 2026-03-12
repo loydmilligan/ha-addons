@@ -18,7 +18,7 @@ from lyrics_fetcher import LyricsFetcher
 from cache import LyricsCache
 from missing_lyrics import MissingLyricsTracker
 from ma_client import MAClient
-from app.chromecast_caster import ChromecastCaster
+from chromecast_caster import ChromecastCaster
 
 # Supervisor API for image proxy
 SUPERVISOR_TOKEN = os.environ.get("SUPERVISOR_TOKEN", "")
