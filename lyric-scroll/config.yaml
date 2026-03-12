@@ -1,5 +1,5 @@
 name: Lyric Scroll
-version: "0.4.18"
+version: "0.5.0"
 slug: lyric_scroll
 description: Display synchronized karaoke-style lyrics for currently playing music
 url: https://github.com/loydmilligan/lyric-scroll
@@ -28,6 +28,7 @@ options:
   display_mode: scroll
   theme: dark
   font_size: large
+  cast_app_id: ""
 schema:
   media_players:
     - str?
@@ -35,5 +36,6 @@ schema:
   display_mode: list(scroll|page|focus)
   theme: list(dark|light|oled)
   font_size: list(small|medium|large|xlarge)
+  cast_app_id: str?
 map:
   - data:rw

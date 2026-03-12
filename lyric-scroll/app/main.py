@@ -260,6 +260,10 @@ class LyricScrollApp:
         """Serve the main HTML page."""
         return web.FileResponse('/frontend/index.html')
 
+    async def receiver_handler(self, request: web.Request) -> web.FileResponse:
+        """Serve the Cast Receiver page (runs on Chromecast)."""
+        return web.FileResponse('/frontend/receiver.html')
+
     async def api_missing_lyrics(self, request: web.Request) -> web.Response:
         """Get list of tracks with missing lyrics."""
         return web.json_response({
@@ -326,7 +330,8 @@ class LyricScrollApp:
             "default_display": None,    # Default display for casting
             "autocast_enabled": False,
             "autocast_url": "http://192.168.6.8:8099",
-            "display_ips": {}           # Maps display entity_id to IP address
+            "display_ips": {},          # Maps display entity_id to IP address
+            "cast_app_id": ""           # Custom Cast Receiver App ID
         }
 
         try:
@@ -427,7 +432,7 @@ class LyricScrollApp:
             data = await request.json()
 
             # Update settings (only known keys)
-            for key in ["ma_players", "display_mappings", "default_player", "default_display", "autocast_enabled", "autocast_url", "display_ips"]:
+            for key in ["ma_players", "display_mappings", "default_player", "default_display", "autocast_enabled", "autocast_url", "display_ips", "cast_app_id"]:
                 if key in data:
                     self.settings[key] = data[key]
 
@@ -528,6 +533,7 @@ class LyricScrollApp:
 
         # Routes
         app.router.add_get('/', self.index_handler)
+        app.router.add_get('/receiver', self.receiver_handler)
         app.router.add_get('/ws', self.websocket_handler)
         app.router.add_static('/css', '/frontend/css')
         app.router.add_static('/js', '/frontend/js')

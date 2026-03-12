@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Lyric Scroll</title>
     <link rel="stylesheet" href="css/main.css?v=0.3.1">
+    <!-- Cast Sender SDK - must load before cast-sender.js -->
+    <script src="https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1"></script>
 </head>
 <body>
     <div id="app">
@@ -56,7 +58,11 @@
                 <span id="track-artist">-</span>
             </div>
             <div id="info-bar-right">
-                <span id="version">v0.4.18</span>
+                <span id="version">v0.5.0</span>
+                <button id="cast-btn" class="cast-btn hidden" title="Cast to Chromecast">
+                    <span class="cast-icon"></span>
+                    <span class="cast-status">Cast</span>
+                </button>
                 <button id="settings-btn" title="Settings">⚙️</button>
             </div>
         </div>
@@ -156,9 +162,24 @@
                     <p class="setting-help">JSON mapping display entity_id to IP address</p>
                 </div>
             </div>
+
+            <div class="settings-section">
+                <h3>Chromecast</h3>
+                <label class="setting-with-help">
+                    <span class="setting-title">
+                        Cast Application ID
+                        <span class="help-icon" title="Get this from the Google Cast Developer Console ($5 one-time fee). Required for casting.">?</span>
+                    </span>
+                    <input type="text" id="cast-app-id" placeholder="e.g., 857B94F0">
+                </label>
+                <p class="settings-hint">
+                    <a href="https://cast.google.com/publish" target="_blank">Register at Google Cast Console</a>
+                </p>
+            </div>
         </div>
     </div>
 
+    <script src="js/cast-sender.js?v=0.5.0"></script>
     <script src="js/app.js?v=0.3.1"></script>
 </body>
 </html>

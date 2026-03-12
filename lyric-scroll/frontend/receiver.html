@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lyric Scroll Cast Receiver</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #0a0a0f;
+      color: white;
+      height: 100vh;
+      width: 100vw;
+      overflow: hidden;
+    }
+
+    .standby {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      text-align: center;
+      background: linear-gradient(135deg, #1a1a2e 0%, #0a0a0f 100%);
+    }
+
+    .standby h1 {
+      font-size: 72px;
+      font-weight: 300;
+      margin-bottom: 20px;
+      background: linear-gradient(90deg, #00d4ff, #7b2cbf);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .standby .status {
+      font-size: 28px;
+      opacity: 0.6;
+      font-weight: 300;
+    }
+
+    .standby .icon {
+      font-size: 120px;
+      margin-bottom: 30px;
+      opacity: 0.8;
+    }
+
+    #contentFrame {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      border: none;
+      z-index: 1000;
+    }
+
+    #contentFrame.active {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <div class="standby" id="standbyView">
+    <div class="icon">🎵</div>
+    <h1>Lyric Scroll</h1>
+    <div class="status" id="status">Ready to display lyrics</div>
+  </div>
+
+  <iframe id="contentFrame"></iframe>
+
+  <!-- Cast Receiver SDK -->
+  <script src="//www.gstatic.com/cast/sdk/libs/caf_receiver/v3/cast_receiver_framework.js"></script>
+
+  <script>
+    // Custom namespace for sender-receiver messages
+    // MUST match the namespace used in cast-sender.js
+    const NAMESPACE = 'urn:x-cast:com.lyricscroll.cast';
+
+    // Initialize Cast Receiver
+    const context = cast.framework.CastReceiverContext.getInstance();
+
+    // Handle messages from sender
+    context.addCustomMessageListener(NAMESPACE, (event) => {
+      console.log('Received message:', event.data);
+      const data = event.data;
+
+      // Load a URL in the iframe
+      if (data.loadUrl) {
+        loadContent(data.loadUrl);
+      }
+
+      // Clear content and show standby
+      if (data.clearContent) {
+        clearContent();
+      }
+
+      // Update status message
+      if (data.statusMessage) {
+        document.getElementById('status').textContent = data.statusMessage;
+      }
+
+      // Reload current content
+      if (data.reload) {
+        const frame = document.getElementById('contentFrame');
+        if (frame.src) {
+          frame.src = frame.src;
+        }
+      }
+    });
+
+    function loadContent(url) {
+      const frame = document.getElementById('contentFrame');
+      const standby = document.getElementById('standbyView');
+
+      frame.src = url;
+      frame.classList.add('active');
+      standby.style.display = 'none';
+
+      console.log('Loading content:', url);
+    }
+
+    function clearContent() {
+      const frame = document.getElementById('contentFrame');
+      const standby = document.getElementById('standbyView');
+
+      frame.src = '';
+      frame.classList.remove('active');
+      standby.style.display = 'flex';
+      document.getElementById('status').textContent = 'Ready to display lyrics';
+
+      console.log('Content cleared');
+    }
+
+    // Start the receiver with options
+    const options = new cast.framework.CastReceiverOptions();
+    options.disableIdleTimeout = true;  // Keep receiver alive indefinitely
+    options.maxInactivity = 3600;       // 1 hour max inactivity
+
+    context.start(options);
+    console.log('Lyric Scroll Cast Receiver started');
+  </script>
+</body>
+</html>

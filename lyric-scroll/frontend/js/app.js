@@ -31,8 +31,12 @@ class LyricScroll {
             maDisplayMappings: {}, // player -> display mappings
             autocastEnabled: false, // enable auto-casting
             autocastUrl: 'http://192.168.6.8:8099', // default cast URL
-            displayIps: {}        // display entity_id -> IP address mapping
+            displayIps: {},       // display entity_id -> IP address mapping
+            castAppId: ''
         };
+
+        // Cast state
+        this.castSender = null;
 
         // DOM elements
         this.lyricsContent = document.getElementById('lyrics-content');
@@ -62,6 +66,8 @@ class LyricScroll {
         this.autocastEnabledCheckbox = document.getElementById('autocast-enabled');
         this.autocastUrlInput = document.getElementById('autocast-url');
         this.displayIpsInput = document.getElementById('display-ips');
+        this.castBtn = document.getElementById('cast-btn');
+        this.castAppIdInput = document.getElementById('cast-app-id');
 
         // MA data
         this.maPlayers = [];
@@ -550,6 +556,74 @@ class LyricScroll {
         }
     }
 
+    initCast() {
+        // Only initialize if we have an app ID
+        if (!this.settings.castAppId) {
+            console.log('No Cast App ID configured');
+            if (this.castBtn) this.castBtn.classList.add('hidden');
+            return;
+        }
+
+        // Check if Cast SDK is available (only works in Chrome)
+        if (typeof cast === 'undefined' || typeof chrome === 'undefined' || !chrome.cast) {
+            console.log('Cast SDK not available (not Chrome or extension disabled)');
+            return;
+        }
+
+        try {
+            this.castSender = new LyricScrollCastSender(this.settings.castAppId);
+
+            this.castSender.onStatusChange = (state, message) => {
+                this.updateCastUI(state, message);
+
+                // Auto-cast lyrics URL when connected
+                if (state === 'connected') {
+                    this.castCurrentLyrics();
+                }
+            };
+
+            // Show cast button
+            if (this.castBtn) this.castBtn.classList.remove('hidden');
+        } catch (err) {
+            console.error('Failed to initialize Cast:', err);
+        }
+    }
+
+    updateCastUI(state, message) {
+        if (!this.castBtn) return;
+
+        const statusEl = this.castBtn.querySelector('.cast-status');
+
+        this.castBtn.dataset.state = state;
+        if (statusEl) {
+            if (state === 'connected') {
+                statusEl.textContent = message.replace('Connected to ', '');
+            } else {
+                statusEl.textContent = 'Cast';
+            }
+        }
+
+        if (state === 'connected') {
+            this.castBtn.classList.add('connected');
+        } else {
+            this.castBtn.classList.remove('connected');
+        }
+    }
+
+    async castCurrentLyrics() {
+        if (!this.castSender?.isConnected()) return;
+
+        // Build the URL to cast - use the autocast URL (which should be the addon's LAN IP)
+        const lyricsUrl = this.settings.autocastUrl || window.location.origin;
+
+        try {
+            await this.castSender.castUrl(lyricsUrl);
+            console.log('Cast lyrics URL:', lyricsUrl);
+        } catch (err) {
+            console.error('Failed to cast URL:', err);
+        }
+    }
+
     // Music Assistant API methods
     async fetchMAData() {
         try {
@@ -592,7 +666,11 @@ class LyricScroll {
                 if (serverSettings.display_ips) {
                     this.settings.displayIps = serverSettings.display_ips;
                 }
+                if (serverSettings.cast_app_id) {
+                    this.settings.castAppId = serverSettings.cast_app_id;
+                }
                 this.updateMAUI();
+                this.initCast();
             }
         } catch (e) {
             console.error('Failed to fetch MA data:', e);
@@ -668,6 +746,11 @@ class LyricScroll {
         }
         if (this.displayIpsInput) {
             this.displayIpsInput.value = JSON.stringify(this.settings.displayIps);
+        }
+
+        // Update Cast App ID
+        if (this.castAppIdInput) {
+            this.castAppIdInput.value = this.settings.castAppId || '';
         }
     }
 
@@ -762,7 +845,8 @@ class LyricScroll {
                     display_mappings: this.settings.maDisplayMappings,
                     autocast_enabled: this.settings.autocastEnabled,
                     autocast_url: this.settings.autocastUrl,
-                    display_ips: this.settings.displayIps
+                    display_ips: this.settings.displayIps,
+                    cast_app_id: this.settings.castAppId
                 })
             });
 
@@ -892,6 +976,31 @@ class LyricScroll {
                     this.saveMASettings();
                 } catch (error) {
                     console.error('Invalid JSON for display IPs:', error);
+                }
+            });
+        }
+
+        // Cast button click
+        if (this.castBtn) {
+            this.castBtn.addEventListener('click', () => {
+                if (!this.castSender) return;
+                if (this.castSender.isConnected()) {
+                    this.castSender.stopCasting();
+                } else {
+                    this.castSender.startCasting();
+                }
+            });
+        }
+
+        // Cast App ID input
+        if (this.castAppIdInput) {
+            this.castAppIdInput.addEventListener('change', (e) => {
+                this.settings.castAppId = e.target.value.trim().toUpperCase();
+                this.saveSettings();
+                this.saveMASettings();
+                // Re-initialize cast with new app ID
+                if (this.settings.castAppId) {
+                    this.initCast();
                 }
             });
         }

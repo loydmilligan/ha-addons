@@ -157,6 +157,67 @@ html, body {
     background-color: rgba(255, 255, 255, 0.1);
 }
 
+/* Cast Button */
+.cast-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: transparent;
+    border: 1px solid var(--text-muted, #666);
+    border-radius: 4px;
+    padding: 6px 12px;
+    color: var(--text-secondary, #aaa);
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    margin-right: 10px;
+}
+
+.cast-btn:hover {
+    border-color: var(--accent, #00d4ff);
+    color: var(--accent, #00d4ff);
+}
+
+.cast-btn.connected {
+    border-color: var(--accent, #00d4ff);
+    background-color: var(--accent, #00d4ff);
+    color: #000;
+}
+
+.cast-btn.hidden {
+    display: none;
+}
+
+.cast-btn .cast-icon::before {
+    content: "📺";
+    font-size: 16px;
+}
+
+.cast-btn .cast-status {
+    font-size: 12px;
+    max-width: 100px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Cast App ID Input */
+#cast-app-id {
+    font-family: monospace;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+/* Settings hint link */
+.settings-hint a {
+    color: var(--accent, #00d4ff);
+    text-decoration: none;
+}
+
+.settings-hint a:hover {
+    text-decoration: underline;
+}
+
 /* Album Art Container */
 #album-art-container {
     position: fixed;
