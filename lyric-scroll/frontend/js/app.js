@@ -247,6 +247,7 @@ class LyricScroll {
     handleLoading(data) {
         this.lyrics = [];
         this.currentLineIndex = -1;
+        this.lastPositionMs = 0;
         this.lyricsContent.innerHTML = '';
         this.statusMessage.classList.remove('hidden');
         this.statusText.textContent = 'Loading lyrics...';
@@ -269,6 +270,9 @@ class LyricScroll {
         // Stop any existing position tracking
         this.stopPositionTracking();
         this.currentLineIndex = -1;
+        // Reset position state to prevent using stale data from previous song
+        this.lastPositionMs = 0;
+        this.lastPositionTime = 0;
 
         this.lyrics = data.lyrics || [];
         this.trackTitle.textContent = data.track?.title || '-';
@@ -370,6 +374,7 @@ class LyricScroll {
         this.state = 'idle';
         this.lyrics = [];
         this.currentLineIndex = -1;
+        this.lastPositionMs = 0;
         this.lyricsContent.innerHTML = '';
         this.statusMessage.classList.remove('hidden');
         this.statusText.textContent = 'Waiting for music...';
@@ -391,6 +396,22 @@ class LyricScroll {
     updateCurrentLine(positionMs) {
         // Apply offset setting (positive = lyrics appear later, negative = earlier)
         const adjustedPosition = positionMs + this.settings.offsetMs;
+
+        // Safety check: if position seems invalid or very high for song start, ignore
+        // This prevents jumping to the end due to stale position data
+        if (this.lyrics.length === 0) {
+            return;
+        }
+
+        // If first lyric hasn't started yet, stay at index -1
+        const firstLyricTime = this.lyrics[0]?.timestamp_ms || 0;
+        if (adjustedPosition < firstLyricTime) {
+            if (this.currentLineIndex !== -1) {
+                this.currentLineIndex = -1;
+                this.highlightCurrentLine();
+            }
+            return;
+        }
 
         // Find the current line based on adjusted position
         let newIndex = -1;
