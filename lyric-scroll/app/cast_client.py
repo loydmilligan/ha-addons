@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 _chromecasts: dict = {}
 
 
-def get_chromecast_by_ip(ip_address: str) -> Optional[pychromecast.Chromecast]:
+def get_chromecast_by_ip(ip_address: str, port: int = 8009) -> Optional[pychromecast.Chromecast]:
     """Get or create a Chromecast connection by IP address."""
     if ip_address in _chromecasts:
         cc = _chromecasts[ip_address]
@@ -20,23 +20,15 @@ def get_chromecast_by_ip(ip_address: str) -> Optional[pychromecast.Chromecast]:
             return cc
 
     try:
-        logger.info(f"Connecting to Chromecast at {ip_address}...")
-        # Connect directly by IP (no discovery needed)
-        chromecasts, browser = pychromecast.get_listed_chromecasts(
-            friendly_names=None,
-            uuids=None,
-            hosts=[ip_address]
-        )
+        logger.info(f"Connecting to Chromecast at {ip_address}:{port}...")
 
-        if chromecasts:
-            cc = chromecasts[0]
-            cc.wait()
-            _chromecasts[ip_address] = cc
-            logger.info(f"Connected to Chromecast: {cc.cast_info.friendly_name}")
-            return cc
-        else:
-            logger.error(f"No Chromecast found at {ip_address}")
-            return None
+        # Connect directly by IP using Chromecast class
+        cc = pychromecast.Chromecast(host=ip_address, port=port)
+        cc.wait()
+
+        _chromecasts[ip_address] = cc
+        logger.info(f"Connected to Chromecast: {cc.cast_info.friendly_name}")
+        return cc
 
     except Exception as e:
         logger.error(f"Error connecting to Chromecast at {ip_address}: {e}")
