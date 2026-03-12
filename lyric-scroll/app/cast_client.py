@@ -2,6 +2,7 @@
 
 import logging
 from typing import Optional
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 import pychromecast
 from pychromecast.controllers.dashcast import DashCastController
 
@@ -9,6 +10,10 @@ logger = logging.getLogger(__name__)
 
 # Cache of connected chromecasts by IP
 _chromecasts: dict = {}
+_executor = ThreadPoolExecutor(max_workers=2)
+
+# Connection timeout in seconds
+CONNECT_TIMEOUT = 10
 
 
 def get_chromecast_by_ip(ip_address: str, port: int = 8009) -> Optional[pychromecast.Chromecast]:
@@ -45,13 +50,23 @@ def get_chromecast_by_ip(ip_address: str, port: int = 8009) -> Optional[pychrome
             # Legacy pychromecast API - positional argument
             cc = pychromecast.Chromecast(ip_address)
 
-        cc.wait()
+        # Wait with timeout
+        logger.info(f"Waiting for Chromecast connection (timeout={CONNECT_TIMEOUT}s)...")
+        cc.wait(timeout=CONNECT_TIMEOUT)
+
+        if not cc.socket_client or not cc.socket_client.is_connected:
+            logger.error(f"Chromecast at {ip_address} did not connect in time")
+            return None
+
         _chromecasts[ip_address] = cc
-        logger.info(f"Connected to Chromecast: {cc.cast_info.friendly_name if hasattr(cc, 'cast_info') else ip_address}")
+        friendly = cc.cast_info.friendly_name if hasattr(cc, 'cast_info') and cc.cast_info else ip_address
+        logger.info(f"Connected to Chromecast: {friendly}")
         return cc
 
     except Exception as e:
         logger.error(f"Error connecting to Chromecast at {ip_address}: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
         return None
 
 
