@@ -22,12 +22,32 @@ def get_chromecast_by_ip(ip_address: str, port: int = 8009) -> Optional[pychrome
     try:
         logger.info(f"Connecting to Chromecast at {ip_address}:{port}...")
 
-        # Connect directly by IP using Chromecast class
-        cc = pychromecast.Chromecast(host=ip_address, port=port)
-        cc.wait()
+        # Connect directly by IP - try different API approaches
+        try:
+            # Newer pychromecast API
+            from pychromecast.discovery import CastBrowser, SimpleCastListener
+            import zeroconf
 
+            zconf = zeroconf.Zeroconf()
+            cast_info = pychromecast.models.CastInfo(
+                services=set(),
+                uuid=None,
+                model_name="Chromecast",
+                friendly_name="Chromecast",
+                host=ip_address,
+                port=port,
+                cast_type="cast",
+                manufacturer="Google"
+            )
+            cc = pychromecast.get_chromecast_from_cast_info(cast_info, zconf)
+        except Exception as e1:
+            logger.debug(f"New API failed ({e1}), trying legacy...")
+            # Legacy pychromecast API - positional argument
+            cc = pychromecast.Chromecast(ip_address)
+
+        cc.wait()
         _chromecasts[ip_address] = cc
-        logger.info(f"Connected to Chromecast: {cc.cast_info.friendly_name}")
+        logger.info(f"Connected to Chromecast: {cc.cast_info.friendly_name if hasattr(cc, 'cast_info') else ip_address}")
         return cc
 
     except Exception as e:
