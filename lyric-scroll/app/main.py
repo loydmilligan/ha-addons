@@ -377,17 +377,22 @@ class LyricScrollApp:
             logger.info(f"Display {display_id} is busy ({current_state}), skipping autocast")
             return
 
-        # Cast the URL to the display
+        # Cast the URL using DashCast receiver (works for any URL on Cast devices)
         cast_url = self.settings.get("autocast_url", "http://192.168.6.8:8099")
         logger.info(f"Attempting to cast {cast_url} to {display_id}")
 
+        # DashCast app ID: B95BBCFB - allows casting any URL
         success = await self.ha_client.call_service(
             "media_player",
             "play_media",
             {
                 "entity_id": display_id,
                 "media_content_id": cast_url,
-                "media_content_type": "website"
+                "media_content_type": "cast",
+                "extra": {
+                    "app_id": "B95BBCFB",
+                    "app_name": "DashCast"
+                }
             }
         )
         if success:
