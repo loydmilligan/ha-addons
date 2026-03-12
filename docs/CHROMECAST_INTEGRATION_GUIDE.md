@@ -8,6 +8,160 @@ This document explains how to integrate Chromecast casting of arbitrary web cont
 
 ---
 
+## Recommended Approach: PyChromecast (Backend/Automatic)
+
+For automatic casting (no user interaction), use **PyChromecast** from the addon backend. This is the approach used by Home Assistant's built-in cast integration.
+
+**Advantages:**
+- Fully automatic - no browser, no clicks
+- Works from Python backend
+- Can reconnect automatically
+- Perfect for event-driven casting (e.g., when a song starts playing)
+
+**The alternative (Browser Cast SDK)** requires a user click to initiate and a browser tab to stay open - not suitable for automatic casting.
+
+### PyChromecast Module
+
+Copy `chromecast_caster.py` to your addon. Usage:
+
+```python
+from chromecast_caster import ChromecastCaster, cast_to_device
+
+# Simple one-shot casting
+cast_to_device(
+    device_ip="192.168.5.187",
+    url="http://192.168.4.217:8080/lyrics?song=123",
+    app_id="857B94F0"
+)
+
+# Or for persistent connection (recommended for frequent updates)
+caster = ChromecastCaster(app_id="857B94F0")
+caster.connect("192.168.5.187")
+caster.launch_receiver()
+
+# Cast different URLs as songs change
+caster.cast_url("http://ha-ip:port/lyrics?song=song1")
+# ... later ...
+caster.cast_url("http://ha-ip:port/lyrics?song=song2")
+
+# When done
+caster.clear_content()
+caster.disconnect()
+```
+
+### Integration with Home Assistant Events
+
+```python
+# Example: Cast lyrics when media player starts playing
+async def handle_media_player_state_change(event):
+    state = event.data.get("new_state")
+
+    if state.state == "playing":
+        media_title = state.attributes.get("media_title")
+        song_id = lookup_song_id(media_title)
+
+        lyrics_url = f"http://{HA_IP}:{ADDON_PORT}/lyrics/{song_id}"
+
+        caster.cast_url(lyrics_url)
+
+    elif state.state in ("paused", "idle"):
+        caster.clear_content()
+```
+
+### Dependencies
+
+Add to your addon's requirements:
+```
+pychromecast>=14.0.0
+```
+
+---
+
+## Cast Receiver Deployment
+
+The custom receiver is deployed as a Docker container on a separate host (piUSBcam). This keeps it running 24/7 independently of the Home Assistant addon.
+
+### Production Deployment
+
+| Setting | Value |
+|---------|-------|
+| Host | piUSBcam (192.168.4.158) |
+| Port | 9123 |
+| Receiver URL | `http://192.168.4.158:9123/receiver.html` |
+| Repository | https://github.com/loydmilligan/cast-receiver |
+
+### Deploying Updates
+
+When changes are made to the receiver:
+
+```bash
+# Push changes from development machine
+cd ~/Projects/cast-test
+git add <files>
+git commit -m "Description of changes"
+git push
+
+# Deploy on Pi
+ssh pi "cd ~/cast-receiver && git pull && docker compose up -d --build"
+```
+
+### Useful Commands
+
+```bash
+# Check container status
+ssh pi "docker ps --filter name=cast-receiver"
+
+# View logs
+ssh pi "docker logs cast-receiver"
+ssh pi "docker logs -f cast-receiver"  # Follow logs
+
+# Restart container
+ssh pi "cd ~/cast-receiver && docker compose restart"
+
+# Full redeploy
+ssh pi "cd ~/cast-receiver && docker compose down && docker compose up -d --build"
+```
+
+### Container Configuration
+
+The container runs with `restart: unless-stopped` policy, so it will:
+- Automatically restart if it crashes
+- Restart after Docker/system reboot
+- Stay stopped only if manually stopped
+
+---
+
+## Manual Casting (Backup/Testing)
+
+The browser-based sender is available as a backup for testing or debugging. Unlike PyChromecast, this requires manual user interaction.
+
+### When to Use Manual Casting
+- Testing receiver changes before deploying
+- Debugging casting issues
+- Verifying Chromecast connectivity
+- Quick one-off casts without backend
+
+### How to Use
+
+1. Open Chrome browser (required - Cast SDK only works in Chrome)
+2. Navigate to `http://localhost:8080/sender.html` (must use localhost, not IP)
+3. Enter App ID: `857B94F0`
+4. Click "Initialize Cast"
+5. Click "Start Casting" - select your Chromecast from the dialog
+6. Enter a URL and click "Cast URL"
+
+**Note:** The sender must be accessed via `localhost` because Chrome's Cast SDK requires a secure context (HTTPS or localhost).
+
+### Limitations of Manual Casting
+- Requires Chrome browser
+- Requires user click to initiate (cannot be automated)
+- Browser tab must stay open to maintain session
+- Not suitable for automatic/event-driven casting
+
+For production use with Home Assistant automations, always use PyChromecast.
+
+---
+
 ## Architecture
 
 ```
@@ -71,6 +225,9 @@ The addon settings UI should collect:
 |-------|-------------|---------|
 | `cast_app_id` | Application ID from Cast Console | `857B94F0` |
 | `chromecast_devices` | List of registered device serial numbers | `["6920103PYB5A"]` |
+| `chromecast_ip` | IP address of the Chromecast device | `192.168.5.187` |
+
+**Note on Chromecast IP Address**: When using PyChromecast for automatic casting, you need the Chromecast's IP address. While PyChromecast supports device discovery via mDNS, discovery may not work reliably in all network setups (Docker containers, WSL, complex network configurations). For production use, it's recommended to ask users to provide the Chromecast IP address in the addon settings. Users can find this in the Google Home app under Device Settings → Technical Information.
 
 ### Optional (if you want device discovery):
 The addon can use mDNS/SSDP to discover Chromecasts on the network, but users still need to register serial numbers in Cast Console for unpublished apps.
@@ -600,6 +757,8 @@ Once published, any Chromecast can use the app without being registered as a tes
 | Receiver SDK | `//www.gstatic.com/cast/sdk/libs/caf_receiver/v3/cast_receiver_framework.js` |
 | Namespace format | `urn:x-cast:com.yourcompany.appname` |
 | Test device reboot | Required after adding to Cast Console |
+| Receiver Deployment | `ssh pi "cd ~/cast-receiver && git pull && docker compose up -d --build"` |
+| Receiver URL | `http://192.168.4.158:9123/receiver.html` |
 
 ---
 

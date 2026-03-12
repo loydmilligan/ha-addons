@@ -32,7 +32,8 @@ class LyricScroll {
             autocastEnabled: false, // enable auto-casting
             autocastUrl: 'http://192.168.6.8:8099', // default cast URL
             displayIps: {},       // display entity_id -> IP address mapping
-            castAppId: ''
+            castAppId: '',
+            chromecastIp: ''
         };
 
         // Cast state
@@ -68,6 +69,7 @@ class LyricScroll {
         this.displayIpsInput = document.getElementById('display-ips');
         this.castBtn = document.getElementById('cast-btn');
         this.castAppIdInput = document.getElementById('cast-app-id');
+        this.chromecastIpInput = document.getElementById('chromecast-ip');
 
         // MA data
         this.maPlayers = [];
@@ -669,6 +671,9 @@ class LyricScroll {
                 if (serverSettings.cast_app_id) {
                     this.settings.castAppId = serverSettings.cast_app_id;
                 }
+                if (serverSettings.chromecast_ip) {
+                    this.settings.chromecastIp = serverSettings.chromecast_ip;
+                }
                 this.updateMAUI();
                 this.initCast();
             }
@@ -751,6 +756,11 @@ class LyricScroll {
         // Update Cast App ID
         if (this.castAppIdInput) {
             this.castAppIdInput.value = this.settings.castAppId || '';
+        }
+
+        // Update Chromecast IP
+        if (this.chromecastIpInput) {
+            this.chromecastIpInput.value = this.settings.chromecastIp || '';
         }
     }
 
@@ -846,7 +856,8 @@ class LyricScroll {
                     autocast_enabled: this.settings.autocastEnabled,
                     autocast_url: this.settings.autocastUrl,
                     display_ips: this.settings.displayIps,
-                    cast_app_id: this.settings.castAppId
+                    cast_app_id: this.settings.castAppId,
+                    chromecast_ip: this.settings.chromecastIp
                 })
             });
 
@@ -1002,6 +1013,15 @@ class LyricScroll {
                 if (this.settings.castAppId) {
                     this.initCast();
                 }
+            });
+        }
+
+        // Chromecast IP input
+        if (this.chromecastIpInput) {
+            this.chromecastIpInput.addEventListener('change', (e) => {
+                this.settings.chromecastIp = e.target.value.trim();
+                this.saveSettings();
+                this.saveMASettings();
             });
         }
     }

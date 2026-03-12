@@ -58,7 +58,7 @@
                 <span id="track-artist">-</span>
             </div>
             <div id="info-bar-right">
-                <span id="version">v0.5.0</span>
+                <span id="version">v0.5.1</span>
                 <button id="cast-btn" class="cast-btn hidden" title="Cast to Chromecast">
                     <span class="cast-icon"></span>
                     <span class="cast-status">Cast</span>
@@ -165,6 +165,13 @@
 
             <div class="settings-section">
                 <h3>Chromecast</h3>
+                <label class="setting-with-help">
+                    <span class="setting-title">
+                        Chromecast IP
+                        <span class="help-icon" title="IP address of your Chromecast for automatic casting when music plays. Found in Google Home app under Device Settings.">?</span>
+                    </span>
+                    <input type="text" id="chromecast-ip" placeholder="e.g., 192.168.5.187">
+                </label>
                 <label class="setting-with-help">
                     <span class="setting-title">
                         Cast Application ID

@@ -18,6 +18,7 @@ from lyrics_fetcher import LyricsFetcher
 from cache import LyricsCache
 from missing_lyrics import MissingLyricsTracker
 from ma_client import MAClient
+from app.chromecast_caster import ChromecastCaster
 
 # Supervisor API for image proxy
 SUPERVISOR_TOKEN = os.environ.get("SUPERVISOR_TOKEN", "")
@@ -40,6 +41,7 @@ class LyricScrollApp:
         self.ha_client: Optional[HAClient] = None
         self.ma_client = MAClient()
         self.missing_lyrics = MissingLyricsTracker()
+        self.caster = None  # ChromecastCaster instance
 
         self.current_track: Optional[TrackInfo] = None
         self.current_lyrics: Optional[Lyrics] = None
@@ -77,6 +79,8 @@ class LyricScrollApp:
                 await self._fetch_and_broadcast_lyrics(state.track)
                 # Autocast to mapped display
                 await self._autocast_to_display(state.entity_id)
+                # Autocast using ChromecastCaster if configured
+                await self._autocast_lyrics()
             else:
                 # Same track, just update position
                 self.current_position_ms = state.position_ms
@@ -99,6 +103,8 @@ class LyricScrollApp:
                 # Just paused, keep lyrics but update state
                 self.current_state = state.state
                 logger.debug(f"Playback paused on {state.entity_id}")
+                # Clear Chromecast on pause
+                await self._clear_cast()
             else:
                 # Stopped completely
                 if self.current_track is not None:
@@ -108,6 +114,8 @@ class LyricScrollApp:
                     self.active_entity = None
                     self.current_state = "idle"
                     await self.broadcast({"type": "idle"})
+                    # Clear Chromecast when stopped
+                    await self._clear_cast()
 
     async def _fetch_and_broadcast_lyrics(self, track: TrackInfo) -> None:
         """Fetch lyrics for a track and broadcast to clients."""
@@ -331,7 +339,8 @@ class LyricScrollApp:
             "autocast_enabled": False,
             "autocast_url": "http://192.168.6.8:8099",
             "display_ips": {},          # Maps display entity_id to IP address
-            "cast_app_id": ""           # Custom Cast Receiver App ID
+            "cast_app_id": "",          # Custom Cast Receiver App ID
+            "chromecast_ip": ""         # IP address of target Chromecast for auto-casting
         }
 
         try:
@@ -420,6 +429,60 @@ class LyricScrollApp:
         else:
             logger.warning(f"Auto-cast failed for {display_id}: {result}")
 
+    async def _init_chromecast(self) -> None:
+        """Initialize connection to Chromecast if configured."""
+        chromecast_ip = self.settings.get("chromecast_ip", "")
+        cast_app_id = self.settings.get("cast_app_id", "857B94F0")
+
+        if not chromecast_ip:
+            logger.info("No Chromecast IP configured, auto-casting disabled")
+            return
+
+        try:
+            logger.info(f"Connecting to Chromecast at {chromecast_ip}...")
+            self.caster = ChromecastCaster(
+                app_id=cast_app_id,
+                namespace="urn:x-cast:com.casttest.custom"
+            )
+            # Run in executor since pychromecast is blocking
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(None, self.caster.connect, chromecast_ip)
+            await loop.run_in_executor(None, self.caster.launch_receiver)
+            logger.info(f"Connected to Chromecast at {chromecast_ip}")
+        except Exception as e:
+            logger.error(f"Failed to connect to Chromecast: {e}")
+            self.caster = None
+
+    async def _autocast_lyrics(self) -> None:
+        """Cast the lyrics page URL to the connected Chromecast."""
+        if not self.caster:
+            return
+
+        # Build the lyrics URL using the autocast_url setting (which should be the LAN IP)
+        autocast_url = self.settings.get("autocast_url", "")
+        if not autocast_url:
+            logger.warning("No autocast URL configured")
+            return
+
+        try:
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(None, self.caster.cast_url, autocast_url)
+            logger.info(f"Cast lyrics URL: {autocast_url}")
+        except Exception as e:
+            logger.error(f"Failed to cast URL: {e}")
+
+    async def _clear_cast(self) -> None:
+        """Clear content from the Chromecast."""
+        if not self.caster:
+            return
+
+        try:
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(None, self.caster.clear_content)
+            logger.info("Cleared Chromecast content")
+        except Exception as e:
+            logger.error(f"Failed to clear Chromecast: {e}")
+
     # ========== Settings API ==========
 
     async def api_get_settings(self, request: web.Request) -> web.Response:
@@ -432,7 +495,7 @@ class LyricScrollApp:
             data = await request.json()
 
             # Update settings (only known keys)
-            for key in ["ma_players", "display_mappings", "default_player", "default_display", "autocast_enabled", "autocast_url", "display_ips", "cast_app_id"]:
+            for key in ["ma_players", "display_mappings", "default_player", "default_display", "autocast_enabled", "autocast_url", "display_ips", "cast_app_id", "chromecast_ip"]:
                 if key in data:
                     self.settings[key] = data[key]
 
@@ -578,6 +641,9 @@ class LyricScrollApp:
             on_state_change=self.on_state_change,
             media_players=media_players
         )
+
+        # Initialize Chromecast connection if configured
+        await self._init_chromecast()
 
         # Get ingress port
         port = int(os.environ.get('INGRESS_PORT', 8099))
