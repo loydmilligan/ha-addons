@@ -649,6 +649,14 @@ class LyricScrollApp:
             logger.error(f"Queue error: {e}")
             return web.json_response({"error": str(e)}, status=500)
 
+    async def api_position(self, request: web.Request) -> web.Response:
+        """Get current playback position."""
+        return web.json_response({
+            "position_ms": self.current_position_ms,
+            "state": self.current_state,
+            "track": self.current_track.title if self.current_track else None
+        })
+
     def create_app(self) -> web.Application:
         """Create and configure the aiohttp application."""
         app = web.Application()
@@ -676,6 +684,9 @@ class LyricScrollApp:
         app.router.add_post('/api/ma/search', self.api_ma_search)
         app.router.add_post('/api/ma/play', self.api_ma_play)
         app.router.add_post('/api/ma/queue', self.api_ma_queue)
+
+        # Position API
+        app.router.add_get('/api/position', self.api_position)
 
         return app
 

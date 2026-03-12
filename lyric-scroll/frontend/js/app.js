@@ -14,6 +14,9 @@ class LyricScroll {
         this.lastPositionMs = 0;
         this.lastPositionTime = 0;  // Local timestamp when we received position
         this.animationFrameId = null;
+        this.lastServerUpdate = 0;  // Timestamp of last position update from server
+        this.syncCheckInterval = null;  // Interval for checking sync health
+        this.positionPollInterval = null;  // Interval for polling position
 
         // Album art state
         this.albumArtUrl = null;
@@ -317,6 +320,7 @@ class LyricScroll {
         // Record position and local time for interpolation
         this.lastPositionMs = positionMs;
         this.lastPositionTime = performance.now();
+        this.lastServerUpdate = performance.now();
 
         console.log(`Position update: ${(positionMs/1000).toFixed(1)}s, state: ${this.state}`);
 
@@ -345,12 +349,49 @@ class LyricScroll {
         };
 
         this.animationFrameId = requestAnimationFrame(tick);
+
+        // Clear any existing interval
+        if (this.syncCheckInterval) clearInterval(this.syncCheckInterval);
+        // Check sync health every 3 seconds
+        this.syncCheckInterval = setInterval(() => this.checkSyncHealth(), 3000);
     }
 
     stopPositionTracking() {
         if (this.animationFrameId) {
             cancelAnimationFrame(this.animationFrameId);
             this.animationFrameId = null;
+        }
+        if (this.syncCheckInterval) {
+            clearInterval(this.syncCheckInterval);
+            this.syncCheckInterval = null;
+        }
+    }
+
+    async pollPosition() {
+        // Request current position from server via fetch
+        try {
+            const response = await fetch('/api/position');
+            if (response.ok) {
+                const data = await response.json();
+                if (data.position_ms !== undefined) {
+                    console.log('Position poll response:', data.position_ms);
+                    this.lastPositionMs = data.position_ms;
+                    this.lastPositionTime = performance.now();
+                    this.lastServerUpdate = performance.now();
+                }
+            }
+        } catch (err) {
+            console.error('Position poll failed:', err);
+        }
+    }
+
+    checkSyncHealth() {
+        const timeSinceUpdate = performance.now() - this.lastServerUpdate;
+
+        // If no update in 5 seconds and we're supposed to be playing, poll
+        if (this.state === 'playing' && timeSinceUpdate > 5000) {
+            console.warn('No position update in 5s, polling...');
+            this.pollPosition();
         }
     }
 
@@ -388,6 +429,12 @@ class LyricScroll {
         this.statusText.textContent = 'Waiting for music...';
         this.trackTitle.textContent = '-';
         this.trackArtist.textContent = '-';
+
+        // Clear sync check interval
+        if (this.syncCheckInterval) {
+            clearInterval(this.syncCheckInterval);
+            this.syncCheckInterval = null;
+        }
 
         // Hide album art, track overlay, and visualizer
         this.hideAlbumArt();

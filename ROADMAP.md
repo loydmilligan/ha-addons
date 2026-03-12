@@ -197,6 +197,73 @@ This document tracks planned features and enhancements for Lyric Scroll.
 
 *Ideas for future consideration - not yet planned*
 
+### LRC+ Enhanced Lyrics Format
+
+**Status:** Planned
+
+**Problem:** Standard LRC format only provides start timestamps for each line. Advanced features like karaoke highlighting, multi-voice display, section labels, and instrumental screens require additional metadata.
+
+**Solution:** Implement support for the LRC+ extended format with backward compatibility for standard LRC files.
+
+**LRC+ Features:**
+- **End timestamps** for each line: `[00:12.34>00:17.89]` enables precise karaoke highlighting
+- **Attribute tags:**
+  - `v:` - Voice/singer identification for color-coding different vocalists
+  - `s:` - Section markers (verse, chorus, bridge)
+  - `bg` - Background vocals
+  - `inst` - Instrumental sections
+- **Header metadata:**
+  - BPM, musical key, time signature
+  - Voice definitions with color assignments
+- **Section markers:** `[#verse1]`, `[#chorus]` for navigation
+- **Instrumental labels:** Show alternative content during instrumental breaks
+- **Backward compatible:** Falls back gracefully when parsed as standard LRC
+
+**Requirements:**
+
+#### Phase 1: LRC+ Parser & Renderer
+- [ ] Extend lyrics parser to support LRC+ syntax
+- [ ] Parse end timestamps `[start>end]`
+- [ ] Parse attribute tags (voice, section, background, instrumental)
+- [ ] Extract header metadata
+- [ ] Implement karaoke-style highlighting using end timestamps
+- [ ] Color-code lyrics by voice/singer
+- [ ] Display section labels
+- [ ] Show instrumental section screens
+- [ ] Graceful fallback for standard LRC files
+
+#### Phase 2: LRC+ Web Editor
+- [ ] Create web-based LRC+ editor interface
+- [ ] Audio file upload/loading
+- [ ] Load existing LRC file as base
+- [ ] Audio playback controls
+- [ ] "Mark Start" and "Mark End" timestamp buttons
+- [ ] UI for tagging sections (verse, chorus, bridge)
+- [ ] UI for assigning voices/singers to lines
+- [ ] Voice color picker/manager
+- [ ] Mark instrumental sections
+- [ ] Real-time preview of formatted lyrics
+- [ ] Export to LRC+ format
+- [ ] Save/load work-in-progress
+
+#### Phase 3: LRC+ Auto-Converter (Lower Priority)
+- [ ] Analyze audio to detect sections
+- [ ] Detect instrumental breaks
+- [ ] Estimate line end timestamps
+- [ ] Auto-suggest section boundaries
+- [ ] Machine learning for voice separation detection
+- [ ] Export suggested LRC+ for manual review
+
+**Technical Notes:**
+- LRC+ format should be documented in project wiki
+- Store LRC+ files in cache with `.lrc+` or `.lrcx` extension
+- LRCLIB integration may not support LRC+ - cache locally
+- Editor could be standalone tool or integrated into missing lyrics editor
+
+---
+
+### Other Future Ideas
+
 - Spotify Connect integration
 - YouTube Music direct integration
 - Lyrics caching/offline mode
@@ -216,3 +283,4 @@ This document tracks planned features and enhancements for Lyric Scroll.
 | 2026-03-11 | Added Feature 5: Missing Lyrics Editor with multi-source lookup (Genius, AI, YouTube) |
 | 2026-03-11 | Added Feature 6: Dynamic Lyrics Sync for seek/skip tracking |
 | 2026-03-11 | Added Feature 7: Interactive Timeline with scrubbing |
+| 2026-03-12 | Added Future Idea: LRC+ Enhanced Lyrics Format with editor and auto-converter |
