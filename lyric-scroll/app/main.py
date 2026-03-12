@@ -18,6 +18,7 @@ from lyrics_fetcher import LyricsFetcher
 from cache import LyricsCache
 from missing_lyrics import MissingLyricsTracker
 from ma_client import MAClient
+from cast_client import cast_url, discover_chromecasts
 
 # Supervisor API for image proxy
 SUPERVISOR_TOKEN = os.environ.get("SUPERVISOR_TOKEN", "")
@@ -50,6 +51,9 @@ class LyricScrollApp:
         # Settings stored in /data/settings.json
         self.settings_path = "/data/settings.json"
         self.settings = self._load_settings()
+
+        # Discover Chromecasts on startup
+        discover_chromecasts()
 
     async def on_state_change(self, state: PlaybackState) -> None:
         """Handle media player state changes from HA."""
@@ -366,39 +370,32 @@ class LyricScrollApp:
             logger.debug(f"No display mapped for {player_entity_id}")
             return
 
-        # Check if display is idle/off
+        # Get display state and friendly_name from HA
         display_state = await self.ha_client.get_entity_state(display_id)
         if not display_state:
             logger.warning(f"Could not get state for display {display_id}")
             return
 
         current_state = display_state.get("state", "")
-        if current_state not in ("idle", "off", "unavailable"):
+        if current_state not in ("idle", "off", "unavailable", "unknown"):
             logger.info(f"Display {display_id} is busy ({current_state}), skipping autocast")
             return
 
-        # Cast the URL using DashCast receiver (works for any URL on Cast devices)
-        cast_url = self.settings.get("autocast_url", "http://192.168.6.8:8099")
-        logger.info(f"Attempting to cast {cast_url} to {display_id}")
+        # Get the friendly name to match with pychromecast
+        friendly_name = display_state.get("attributes", {}).get("friendly_name", "")
+        if not friendly_name:
+            logger.warning(f"No friendly_name for {display_id}")
+            return
 
-        # DashCast app ID: B95BBCFB - allows casting any URL
-        success = await self.ha_client.call_service(
-            "media_player",
-            "play_media",
-            {
-                "entity_id": display_id,
-                "media_content_id": cast_url,
-                "media_content_type": "cast",
-                "extra": {
-                    "app_id": "B95BBCFB",
-                    "app_name": "DashCast"
-                }
-            }
-        )
+        # Cast the URL using pychromecast directly
+        cast_url_setting = self.settings.get("autocast_url", "http://192.168.6.8:8099")
+        logger.info(f"Attempting to cast {cast_url_setting} to {friendly_name} ({display_id})")
+
+        success = cast_url(friendly_name, cast_url_setting)
         if success:
-            logger.info(f"Auto-cast to {display_id}: {cast_url}")
+            logger.info(f"Auto-cast successful to {friendly_name}")
         else:
-            logger.warning(f"Auto-cast failed for {display_id}")
+            logger.warning(f"Auto-cast failed for {friendly_name}")
 
     # ========== Settings API ==========
 
