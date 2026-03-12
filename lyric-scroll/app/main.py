@@ -77,10 +77,8 @@ class LyricScrollApp:
                 self.current_state = state.state
                 self.current_position_ms = state.position_ms
                 await self._fetch_and_broadcast_lyrics(state.track)
-                # Autocast to mapped display
+                # Autocast to Chromecast using PyChromecast (direct connection)
                 await self._autocast_to_display(state.entity_id)
-                # Autocast using ChromecastCaster if configured
-                await self._autocast_lyrics()
             else:
                 # Same track, just update position
                 self.current_position_ms = state.position_ms
@@ -366,68 +364,62 @@ class LyricScrollApp:
             return False
 
     async def _autocast_to_display(self, player_entity_id: str) -> None:
-        """Cast Lyric Scroll to mapped display if idle."""
+        """Cast Lyric Scroll to Chromecast using PyChromecast.
+
+        Uses direct PyChromecast connection (not HA cast service) to cast
+        the lyrics URL to the configured Chromecast device.
+
+        Settings required:
+        - autocast_enabled: True
+        - chromecast_ip: IP address of Chromecast
+        - autocast_url: URL to cast (your addon's lyrics page)
+        - cast_app_id: Optional, defaults to 857B94F0
+
+        Optional:
+        - display_mappings: If set, will check if display is idle before casting
+        """
         logger.info(f"Autocast check for {player_entity_id}")
         logger.info(f"Autocast enabled: {self.settings.get('autocast_enabled', False)}")
-        logger.info(f"Display mappings: {self.settings.get('display_mappings', {})}")
 
         # Check if autocast is enabled
         if not self.settings.get("autocast_enabled", False):
             return
 
-        # Get mapped display for this player
+        # Check if chromecast_ip is configured
+        chromecast_ip = self.settings.get("chromecast_ip", "")
+        if not chromecast_ip:
+            logger.debug("No chromecast_ip configured, skipping autocast")
+            return
+
+        # Optional: Check display state if display_mappings is configured
         display_id = self.settings.get("display_mappings", {}).get(player_entity_id)
-        if not display_id:
-            logger.debug(f"No display mapped for {player_entity_id}")
-            return
+        if display_id:
+            display_state = await self.ha_client.get_entity_state(display_id)
+            if display_state:
+                current_state = display_state.get("state", "")
+                if current_state not in ("idle", "off", "unavailable", "unknown"):
+                    logger.info(f"Display {display_id} is busy ({current_state}), skipping autocast")
+                    return
 
-        # Get display state from HA
-        display_state = await self.ha_client.get_entity_state(display_id)
-        if not display_state:
-            logger.warning(f"Could not get state for display {display_id}")
-            return
-
-        current_state = display_state.get("state", "")
-        if current_state not in ("idle", "off", "unavailable", "unknown"):
-            logger.info(f"Display {display_id} is busy ({current_state}), skipping autocast")
-            return
-
-        # Cast the URL using HA service call
+        # Cast the URL using PyChromecast (direct connection, not HA cast service)
         cast_url = self.settings.get("autocast_url", "http://192.168.6.8:8099")
-        logger.info(f"Attempting to cast {cast_url} to {display_id}")
+        logger.info(f"Attempting to cast {cast_url} to Chromecast at {chromecast_ip}")
 
-        # Try HA's cast integration with show_lovelace_view first (for dashboards)
-        # If that fails, try media_player.play_media with different content types
+        # Initialize Chromecast connection if not already done
+        if not self.caster:
+            await self._init_chromecast()
 
-        # First try: cast service with URL
-        result = await self.ma_client._call_service(
-            "cast",
-            "show_lovelace_view",
-            {
-                "entity_id": display_id,
-                "view_path": cast_url
-            }
-        )
-        logger.info(f"Cast show_lovelace_view result: {result}")
+        if not self.caster:
+            logger.error("Failed to initialize Chromecast - check chromecast_ip setting")
+            return
 
-        # If that didn't work, try media_player with video type
-        if "error" in result or not result:
-            logger.info("Trying media_player.play_media fallback...")
-            result = await self.ma_client._call_service(
-                "media_player",
-                "play_media",
-                {
-                    "entity_id": display_id,
-                    "media_content_id": cast_url,
-                    "media_content_type": "video/mp4"
-                }
-            )
-            logger.info(f"play_media result: {result}")
-
-        if "error" not in result and result:
-            logger.info(f"Auto-cast successful to {display_id}")
-        else:
-            logger.warning(f"Auto-cast failed for {display_id}: {result}")
+        # Cast the URL using PyChromecast
+        try:
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(None, self.caster.cast_url, cast_url)
+            logger.info(f"Auto-cast successful: {cast_url}")
+        except Exception as e:
+            logger.error(f"Auto-cast failed: {e}")
 
     async def _init_chromecast(self) -> None:
         """Initialize connection to Chromecast if configured."""
