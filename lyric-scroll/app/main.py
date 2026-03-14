@@ -47,7 +47,7 @@ try:
     logging.getLogger().addHandler(file_handler)
     logger.info(f"Log export enabled to {LOG_EXPORT_DIR}")
 except Exception as e:
-    print(f"Warning: Could not set up log export: {e}")
+    logger.warning(f"Could not set up log export to {LOG_EXPORT_DIR}: {e}")
 
 
 class LyricScrollApp:
