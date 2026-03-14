@@ -33,7 +33,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Export logs to samba-shared folder for external access
-LOG_EXPORT_DIR = "/media/lrc/logs"
+LOG_EXPORT_DIR = "/media/prox_share/lrc/logs"
 try:
     os.makedirs(LOG_EXPORT_DIR, exist_ok=True)
     file_handler = RotatingFileHandler(

@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 DEFAULT_CACHE_DIR = "/data/cache"
 
 # LRC export directory (HA shared media folder -> \\192.168.6.31\shared\lrc)
-LRC_EXPORT_DIR = "/media/lrc"
+LRC_EXPORT_DIR = "/media/prox_share/lrc"
 
 
 def sanitize_filename(name: str) -> str:
