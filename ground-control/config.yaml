@@ -1,5 +1,5 @@
 name: Ground Control
-version: "0.1.0"
+version: "0.1.1"
 slug: ground_control
 description: Task and project management for Home Assistant
 url: https://github.com/loydmilligan/ha-addons
@@ -18,7 +18,7 @@ homeassistant_api: true
 hassio_api: true
 auth_api: true
 options:
-  tasks_path: "/config/.tasks"
+  tasks_path: ""
 schema:
   tasks_path: str
 map:

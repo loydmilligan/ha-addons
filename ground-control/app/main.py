@@ -28,11 +28,38 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Possible config paths (HA maps differently in some setups)
+CONFIG_PATHS = [
+    "/config",
+    "/homeassistant",
+    "/share",
+]
+
 # Global state
 state: TaskState = TaskState()
 websocket_clients: Set[web.WebSocketResponse] = set()
 watcher: TasksWatcher = None
 tasks_path: str = "/config/.tasks"
+
+
+def find_tasks_path() -> str:
+    """Auto-detect the correct .tasks path."""
+    for base in CONFIG_PATHS:
+        candidate = Path(base) / ".tasks"
+        if candidate.exists() and (candidate / "buckets.md").exists():
+            logger.info(f"Found .tasks at: {candidate}")
+            return str(candidate)
+
+    # Log what we tried
+    for base in CONFIG_PATHS:
+        candidate = Path(base) / ".tasks"
+        logger.warning(f"Checked {candidate}: exists={candidate.exists()}")
+        if candidate.exists():
+            contents = list(candidate.iterdir())
+            logger.warning(f"  Contents: {contents}")
+
+    # Default fallback
+    return "/config/.tasks"
 
 
 def load_options() -> dict:
@@ -322,7 +349,15 @@ async def on_startup(app: web.Application):
 
     # Load options
     options = load_options()
-    tasks_path = options.get("tasks_path", "/config/.tasks")
+    configured_path = options.get("tasks_path", "")
+
+    # Use configured path if valid, otherwise auto-detect
+    if configured_path and Path(configured_path).exists():
+        tasks_path = configured_path
+        logger.info(f"Using configured tasks_path: {tasks_path}")
+    else:
+        tasks_path = find_tasks_path()
+        logger.info(f"Auto-detected tasks_path: {tasks_path}")
 
     # Load initial state
     await reload_state()

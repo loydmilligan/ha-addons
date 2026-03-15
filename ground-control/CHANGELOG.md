@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.1
+
+- Auto-detect .tasks path (checks /config, /homeassistant, /share)
+- Better logging for path detection issues
+- Empty tasks_path option triggers auto-detection
+
 ## 0.1.0
 
 - Initial release
