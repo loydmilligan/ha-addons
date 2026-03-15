@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.5
+
+- Add direct port access (http://ha-ip:8100)
+- Enable host_network for direct access
+- Expose port 8100/tcp
+
 ## 0.1.4
 
 - Debug logging for frontend file serving
