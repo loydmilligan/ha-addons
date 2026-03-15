@@ -1,0 +1,482 @@
+/* Ground Control - Task Management UI */
+
+:root {
+    --bg-primary: #1a1a2e;
+    --bg-secondary: #16213e;
+    --bg-card: #0f3460;
+    --text-primary: #eaeaea;
+    --text-secondary: #a0a0a0;
+    --accent: #e94560;
+    --border: #2a2a4a;
+
+    /* Bucket colors */
+    --bucket-brainstorm: #9b59b6;
+    --bucket-planning: #3498db;
+    --bucket-investigation: #e67e22;
+    --bucket-cleanup: #7f8c8d;
+    --bucket-work-queue: #27ae60;
+    --bucket-active: #f1c40f;
+    --bucket-completed: #1e8449;
+
+    /* Project colors */
+    --project-reorg: #3498db;
+    --project-motion-lighting: #e67e22;
+    --project-occupancy-music: #9b59b6;
+    --project-notifications: #e74c3c;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    min-height: 100vh;
+}
+
+/* Header */
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.5rem;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+}
+
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.logo {
+    font-size: 1.5rem;
+}
+
+.header h1 {
+    font-size: 1.25rem;
+    font-weight: 600;
+}
+
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.view-tabs {
+    display: flex;
+    gap: 0.25rem;
+    background: var(--bg-primary);
+    padding: 0.25rem;
+    border-radius: 0.5rem;
+}
+
+.tab {
+    padding: 0.5rem 1rem;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+    transition: all 0.2s;
+}
+
+.tab:hover {
+    color: var(--text-primary);
+}
+
+.tab.active {
+    background: var(--accent);
+    color: white;
+}
+
+/* Buttons */
+.btn {
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-primary {
+    background: var(--accent);
+    color: white;
+}
+
+.btn-primary:hover {
+    filter: brightness(1.1);
+}
+
+.btn-secondary {
+    background: var(--bg-card);
+    color: var(--text-primary);
+}
+
+.btn-secondary:hover {
+    background: var(--border);
+}
+
+/* Main Content */
+.main {
+    padding: 1.5rem;
+    height: calc(100vh - 70px);
+    overflow: hidden;
+}
+
+.view {
+    display: none;
+    height: 100%;
+}
+
+.view.active {
+    display: block;
+}
+
+/* Kanban Board */
+.kanban-board {
+    display: flex;
+    gap: 1rem;
+    height: 100%;
+    overflow-x: auto;
+    padding-bottom: 1rem;
+}
+
+.bucket-column {
+    flex: 0 0 280px;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-secondary);
+    border-radius: 0.5rem;
+    max-height: 100%;
+}
+
+.bucket-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    border-radius: 0.5rem 0.5rem 0 0;
+    font-weight: 600;
+    font-size: 0.875rem;
+}
+
+.bucket-header.brainstorm { background: var(--bucket-brainstorm); }
+.bucket-header.planning { background: var(--bucket-planning); }
+.bucket-header.investigation { background: var(--bucket-investigation); }
+.bucket-header.cleanup { background: var(--bucket-cleanup); }
+.bucket-header.work_queue { background: var(--bucket-work-queue); }
+.bucket-header.active { background: var(--bucket-active); color: #1a1a2e; }
+.bucket-header.completed { background: var(--bucket-completed); }
+
+.bucket-count {
+    background: rgba(255,255,255,0.2);
+    padding: 0.125rem 0.5rem;
+    border-radius: 1rem;
+    font-size: 0.75rem;
+}
+
+.bucket-tasks {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.bucket-tasks.drag-over {
+    background: rgba(233, 69, 96, 0.1);
+}
+
+/* Task Cards */
+.task-card {
+    background: var(--bg-card);
+    border-radius: 0.375rem;
+    padding: 0.75rem;
+    cursor: grab;
+    transition: all 0.2s;
+    border-left: 3px solid transparent;
+}
+
+.task-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+
+.task-card.dragging {
+    opacity: 0.5;
+    cursor: grabbing;
+}
+
+.task-card.blocked {
+    border-left-color: var(--accent);
+}
+
+.task-id {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.25rem;
+}
+
+.task-subject {
+    font-size: 0.875rem;
+    line-height: 1.4;
+    margin-bottom: 0.5rem;
+}
+
+.task-meta {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.project-tag {
+    font-size: 0.7rem;
+    padding: 0.125rem 0.5rem;
+    border-radius: 1rem;
+    background: var(--project-reorg);
+}
+
+.project-tag.reorg { background: var(--project-reorg); }
+.project-tag.motion-lighting { background: var(--project-motion-lighting); }
+.project-tag.occupancy-music { background: var(--project-occupancy-music); }
+.project-tag.notifications { background: var(--project-notifications); }
+
+.blocked-indicator {
+    font-size: 0.7rem;
+    color: var(--accent);
+}
+
+/* Projects View */
+.projects-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1rem;
+}
+
+.project-card {
+    background: var(--bg-secondary);
+    border-radius: 0.5rem;
+    padding: 1.25rem;
+}
+
+.project-name {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.project-status {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 1rem;
+    font-size: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
+.project-status.in_progress { background: var(--bucket-active); color: #1a1a2e; }
+.project-status.not_started { background: var(--bg-card); }
+.project-status.complete { background: var(--bucket-completed); }
+
+.project-goal {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    margin-bottom: 1rem;
+}
+
+.project-progress {
+    height: 0.5rem;
+    background: var(--bg-card);
+    border-radius: 0.25rem;
+    overflow: hidden;
+    margin-bottom: 0.5rem;
+}
+
+.project-progress-bar {
+    height: 100%;
+    background: var(--bucket-completed);
+    transition: width 0.3s;
+}
+
+.project-stats {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
+/* History View */
+.history-filters {
+    margin-bottom: 1rem;
+}
+
+.history-filters select {
+    padding: 0.5rem 1rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    border-radius: 0.375rem;
+}
+
+.history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    max-height: calc(100% - 60px);
+    overflow-y: auto;
+}
+
+.history-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.75rem 1rem;
+    background: var(--bg-secondary);
+    border-radius: 0.375rem;
+}
+
+.history-date {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    min-width: 80px;
+}
+
+.history-subject {
+    flex: 1;
+    font-size: 0.875rem;
+}
+
+/* Modal */
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal.active {
+    display: flex;
+}
+
+.modal-content {
+    background: var(--bg-secondary);
+    border-radius: 0.5rem;
+    width: 100%;
+    max-width: 500px;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.modal-header h2 {
+    font-size: 1.125rem;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 1.5rem;
+    cursor: pointer;
+    line-height: 1;
+}
+
+.modal-close:hover {
+    color: var(--text-primary);
+}
+
+#task-form {
+    padding: 1.25rem;
+}
+
+.form-group {
+    margin-bottom: 1rem;
+}
+
+.form-group label {
+    display: block;
+    font-size: 0.875rem;
+    margin-bottom: 0.375rem;
+    color: var(--text-secondary);
+}
+
+.form-group input,
+.form-group textarea,
+.form-group select {
+    width: 100%;
+    padding: 0.625rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 0.375rem;
+    color: var(--text-primary);
+    font-size: 0.875rem;
+}
+
+.form-group input:focus,
+.form-group textarea:focus,
+.form-group select:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+}
+
+/* Empty state */
+.empty-state {
+    text-align: center;
+    padding: 2rem;
+    color: var(--text-secondary);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--bg-primary);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--text-secondary);
+}

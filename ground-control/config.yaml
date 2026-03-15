@@ -1,0 +1,25 @@
+name: Ground Control
+version: "0.1.0"
+slug: ground_control
+description: Task and project management for Home Assistant
+url: https://github.com/loydmilligan/ha-addons
+arch:
+  - amd64
+  - aarch64
+  - armv7
+startup: application
+boot: auto
+init: false
+ingress: true
+ingress_port: 8100
+panel_icon: mdi:rocket-launch
+panel_title: Ground Control
+homeassistant_api: true
+hassio_api: true
+auth_api: true
+options:
+  tasks_path: "/config/.tasks"
+schema:
+  tasks_path: str
+map:
+  - config:rw
