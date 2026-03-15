@@ -20,6 +20,21 @@ class GroundControl {
         this.connectWebSocket();
         this.setupEventListeners();
         this.setupDragAndDrop();
+        this.loadVersion();
+    }
+
+    async loadVersion() {
+        try {
+            const response = await fetch('/api/version');
+            const data = await response.json();
+            const badge = document.getElementById('version-badge');
+            if (badge && data.version) {
+                badge.textContent = `v${data.version}`;
+                badge.title = `Path: ${data.tasks_path}`;
+            }
+        } catch (error) {
+            console.error('Failed to load version:', error);
+        }
     }
 
     // WebSocket Connection

@@ -29,11 +29,14 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Possible config paths (HA maps differently in some setups)
+# /homeassistant is more common in HA OS, check it first
 CONFIG_PATHS = [
-    "/config",
     "/homeassistant",
+    "/config",
     "/share",
 ]
+
+VERSION = "0.1.2"
 
 # Global state
 state: TaskState = TaskState()
@@ -46,20 +49,34 @@ def find_tasks_path() -> str:
     """Auto-detect the correct .tasks path."""
     for base in CONFIG_PATHS:
         candidate = Path(base) / ".tasks"
-        if candidate.exists() and (candidate / "buckets.md").exists():
-            logger.info(f"Found .tasks at: {candidate}")
-            return str(candidate)
+        buckets_file = candidate / "buckets.md"
+
+        # Check that buckets.md exists AND has real content (>100 bytes)
+        if candidate.exists() and buckets_file.exists():
+            try:
+                size = buckets_file.stat().st_size
+                if size > 100:  # Real buckets.md has frontmatter + content
+                    logger.info(f"Found valid .tasks at: {candidate} (buckets.md: {size} bytes)")
+                    return str(candidate)
+                else:
+                    logger.warning(f"Skipping {candidate}: buckets.md too small ({size} bytes)")
+            except Exception as e:
+                logger.warning(f"Error checking {buckets_file}: {e}")
 
     # Log what we tried
     for base in CONFIG_PATHS:
         candidate = Path(base) / ".tasks"
         logger.warning(f"Checked {candidate}: exists={candidate.exists()}")
         if candidate.exists():
-            contents = list(candidate.iterdir())
-            logger.warning(f"  Contents: {contents}")
+            try:
+                contents = list(candidate.iterdir())
+                logger.warning(f"  Contents: {contents}")
+            except Exception as e:
+                logger.warning(f"  Error listing: {e}")
 
     # Default fallback
-    return "/config/.tasks"
+    logger.error("Could not find valid .tasks directory!")
+    return "/homeassistant/.tasks"
 
 
 def load_options() -> dict:
@@ -166,6 +183,11 @@ async def handle_ws_message(ws: web.WebSocketResponse, data: dict):
 
 
 # --- API Routes ---
+
+
+async def api_get_version(request: web.Request) -> web.Response:
+    """Get addon version."""
+    return web.json_response({"version": VERSION, "tasks_path": tasks_path})
 
 
 async def api_get_tasks(request: web.Request) -> web.Response:
@@ -332,6 +354,7 @@ def create_app() -> web.Application:
     app.router.add_static("/css", "/frontend/css")
 
     # API routes
+    app.router.add_get("/api/version", api_get_version)
     app.router.add_get("/api/tasks", api_get_tasks)
     app.router.add_get("/api/projects", api_get_projects)
     app.router.add_post("/api/tasks", api_create_task)

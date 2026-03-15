@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.2
+
+- Add version badge to UI header (hover shows tasks_path)
+- Smarter path detection: checks buckets.md has real content (>100 bytes)
+- Prioritize /homeassistant over /config for HA OS setups
+- Add /api/version endpoint
+
 ## 0.1.1
 
 - Auto-detect .tasks path (checks /config, /homeassistant, /share)
