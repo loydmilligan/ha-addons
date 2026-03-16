@@ -1,0 +1,209 @@
+create_task:
+  name: Create Task
+  description: Create a new task in Ground Control
+  fields:
+    subject:
+      name: Subject
+      description: Brief title for the task (imperative form)
+      required: true
+      example: "Fix the broken light switch"
+      selector:
+        text:
+    description:
+      name: Description
+      description: Detailed description of the task
+      required: false
+      example: "The light switch in the living room is intermittently failing"
+      selector:
+        text:
+          multiline: true
+    bucket:
+      name: Bucket
+      description: Which bucket to place the task in
+      required: false
+      default: brainstorm
+      selector:
+        select:
+          options:
+            - brainstorm
+            - planning
+            - investigation
+            - cleanup
+            - work_queue
+            - active
+    project:
+      name: Project
+      description: Project slug to assign the task to
+      required: false
+      example: "reorg"
+      selector:
+        text:
+
+update_task:
+  name: Update Task
+  description: Update an existing task
+  fields:
+    task_id:
+      name: Task ID
+      description: The task ID (e.g., T-001)
+      required: true
+      example: "T-001"
+      selector:
+        text:
+    subject:
+      name: Subject
+      description: New subject for the task
+      required: false
+      selector:
+        text:
+    description:
+      name: Description
+      description: New description for the task
+      required: false
+      selector:
+        text:
+          multiline: true
+    bucket:
+      name: Bucket
+      description: Move task to this bucket
+      required: false
+      selector:
+        select:
+          options:
+            - brainstorm
+            - planning
+            - investigation
+            - cleanup
+            - work_queue
+            - active
+    project:
+      name: Project
+      description: Project slug to assign the task to
+      required: false
+      selector:
+        text:
+
+move_task:
+  name: Move Task
+  description: Move a task to a different bucket
+  fields:
+    task_id:
+      name: Task ID
+      description: The task ID (e.g., T-001)
+      required: true
+      example: "T-001"
+      selector:
+        text:
+    target_bucket:
+      name: Target Bucket
+      description: The bucket to move the task to
+      required: true
+      selector:
+        select:
+          options:
+            - brainstorm
+            - planning
+            - investigation
+            - cleanup
+            - work_queue
+            - active
+            - completed
+
+complete_task:
+  name: Complete Task
+  description: Mark a task as completed
+  fields:
+    task_id:
+      name: Task ID
+      description: The task ID (e.g., T-001)
+      required: true
+      example: "T-001"
+      selector:
+        text:
+
+delete_task:
+  name: Delete Task
+  description: Delete a task
+  fields:
+    task_id:
+      name: Task ID
+      description: The task ID (e.g., T-001)
+      required: true
+      example: "T-001"
+      selector:
+        text:
+
+create_project:
+  name: Create Project
+  description: Create a new project
+  fields:
+    name:
+      name: Project Name
+      description: Human-readable project name
+      required: true
+      example: "Kitchen Renovation"
+      selector:
+        text:
+    goal:
+      name: Goal
+      description: What "done" looks like for this project
+      required: true
+      example: "All kitchen appliances upgraded and organized"
+      selector:
+        text:
+          multiline: true
+    description:
+      name: Description
+      description: Additional context and details
+      required: false
+      selector:
+        text:
+          multiline: true
+
+update_project:
+  name: Update Project
+  description: Update a project's status or details
+  fields:
+    slug:
+      name: Project Slug
+      description: URL-safe project identifier
+      required: true
+      example: "reorg"
+      selector:
+        text:
+    status:
+      name: Status
+      description: Project status
+      required: false
+      selector:
+        select:
+          options:
+            - not_started
+            - in_progress
+            - complete
+            - archived
+    goal:
+      name: Goal
+      description: Updated goal description
+      required: false
+      selector:
+        text:
+          multiline: true
+    name:
+      name: Name
+      description: Updated project name
+      required: false
+      selector:
+        text:
+
+archive_project:
+  name: Archive Project
+  description: Archive a project (sets status to archived)
+  fields:
+    slug:
+      name: Project Slug
+      description: URL-safe project identifier
+      required: true
+      example: "reorg"
+      selector:
+        text:

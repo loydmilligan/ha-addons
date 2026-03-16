@@ -1,0 +1,19 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to Ground Control",
+        "description": "Enter the URL of your Ground Control addon.",
+        "data": {
+          "addon_url": "Addon URL"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot connect to Ground Control addon. Ensure the addon is running."
+    },
+    "abort": {
+      "already_configured": "Ground Control is already configured."
+    }
+  }
+}

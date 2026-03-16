@@ -1,0 +1,11 @@
+{
+  "domain": "ground_control",
+  "name": "Ground Control",
+  "codeowners": ["@loydmilligan"],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/loydmilligan/ha-addons",
+  "iot_class": "local_polling",
+  "requirements": ["aiohttp>=3.8.0"],
+  "version": "1.0.0"
+}
