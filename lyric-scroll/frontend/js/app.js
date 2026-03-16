@@ -38,6 +38,11 @@ class LyricScroll {
             castAppId: '',
             chromecastIp: '',
             castMethod: 'automation', // 'automation' or 'direct'
+            neohabitEnabled: false,
+            neohabitApiUrl: 'http://192.168.5.242:9000',
+            neohabitUsername: '',
+            neohabitPassword: '',
+            neohabitProject: 'Billy Care',
             weatherApiKey: '',
             weatherZip: '',
             weatherUnits: 'imperial',
@@ -82,6 +87,11 @@ class LyricScroll {
         this.artSizeSelect = document.getElementById('art-size');
 
         // Fallback screen elements
+        this.neohabitEnabledCheckbox = document.getElementById('neohabit-enabled');
+        this.neohabitApiUrlInput = document.getElementById('neohabit-api-url');
+        this.neohabitUsernameInput = document.getElementById('neohabit-username');
+        this.neohabitPasswordInput = document.getElementById('neohabit-password');
+        this.neohabitProjectInput = document.getElementById('neohabit-project');
         this.weatherApiKeyInput = document.getElementById('weather-api-key');
         this.weatherZipInput = document.getElementById('weather-zip');
         this.weatherUnitsSelect = document.getElementById('weather-units');
@@ -809,6 +819,21 @@ class LyricScroll {
                 if (serverSettings.cast_method) {
                     this.settings.castMethod = serverSettings.cast_method;
                 }
+                if (serverSettings.neohabit_enabled !== undefined) {
+                    this.settings.neohabitEnabled = serverSettings.neohabit_enabled;
+                }
+                if (serverSettings.neohabit_api_url !== undefined) {
+                    this.settings.neohabitApiUrl = serverSettings.neohabit_api_url;
+                }
+                if (serverSettings.neohabit_username !== undefined) {
+                    this.settings.neohabitUsername = serverSettings.neohabit_username;
+                }
+                if (serverSettings.neohabit_password !== undefined) {
+                    this.settings.neohabitPassword = serverSettings.neohabit_password;
+                }
+                if (serverSettings.neohabit_project_name !== undefined) {
+                    this.settings.neohabitProject = serverSettings.neohabit_project_name;
+                }
                 if (serverSettings.weather_api_key !== undefined) {
                     this.settings.weatherApiKey = serverSettings.weather_api_key;
                 }
@@ -916,6 +941,23 @@ class LyricScroll {
         // Update Cast Method
         if (this.castMethodSelect) {
             this.castMethodSelect.value = this.settings.castMethod || 'automation';
+        }
+
+        // Update Neohabit settings
+        if (this.neohabitEnabledCheckbox) {
+            this.neohabitEnabledCheckbox.checked = this.settings.neohabitEnabled || false;
+        }
+        if (this.neohabitApiUrlInput) {
+            this.neohabitApiUrlInput.value = this.settings.neohabitApiUrl || 'http://192.168.5.242:9000';
+        }
+        if (this.neohabitUsernameInput) {
+            this.neohabitUsernameInput.value = this.settings.neohabitUsername || '';
+        }
+        if (this.neohabitPasswordInput) {
+            this.neohabitPasswordInput.value = this.settings.neohabitPassword || '';
+        }
+        if (this.neohabitProjectInput) {
+            this.neohabitProjectInput.value = this.settings.neohabitProject || 'Billy Care';
         }
 
         // Update Fallback Screen settings
@@ -1031,6 +1073,11 @@ class LyricScroll {
                     cast_app_id: this.settings.castAppId,
                     chromecast_ip: this.settings.chromecastIp,
                     cast_method: this.settings.castMethod,
+                    neohabit_enabled: this.settings.neohabitEnabled,
+                    neohabit_api_url: this.settings.neohabitApiUrl,
+                    neohabit_username: this.settings.neohabitUsername,
+                    neohabit_password: this.settings.neohabitPassword,
+                    neohabit_project_name: this.settings.neohabitProject,
                     weather_api_key: this.settings.weatherApiKey,
                     weather_zip: this.settings.weatherZip,
                     weather_units: this.settings.weatherUnits,
@@ -1208,6 +1255,46 @@ class LyricScroll {
             this.castMethodSelect.addEventListener('change', (e) => {
                 this.settings.castMethod = e.target.value;
                 this.saveSettings();
+                this.saveMASettings();
+            });
+        }
+
+        // Neohabit - Enable checkbox
+        if (this.neohabitEnabledCheckbox) {
+            this.neohabitEnabledCheckbox.addEventListener('change', (e) => {
+                this.settings.neohabitEnabled = e.target.checked;
+                this.saveMASettings();
+            });
+        }
+
+        // Neohabit - API URL
+        if (this.neohabitApiUrlInput) {
+            this.neohabitApiUrlInput.addEventListener('change', (e) => {
+                this.settings.neohabitApiUrl = e.target.value.trim();
+                this.saveMASettings();
+            });
+        }
+
+        // Neohabit - Username
+        if (this.neohabitUsernameInput) {
+            this.neohabitUsernameInput.addEventListener('change', (e) => {
+                this.settings.neohabitUsername = e.target.value.trim();
+                this.saveMASettings();
+            });
+        }
+
+        // Neohabit - Password
+        if (this.neohabitPasswordInput) {
+            this.neohabitPasswordInput.addEventListener('change', (e) => {
+                this.settings.neohabitPassword = e.target.value.trim();
+                this.saveMASettings();
+            });
+        }
+
+        // Neohabit - Project Name
+        if (this.neohabitProjectInput) {
+            this.neohabitProjectInput.addEventListener('change', (e) => {
+                this.settings.neohabitProject = e.target.value.trim();
                 this.saveMASettings();
             });
         }

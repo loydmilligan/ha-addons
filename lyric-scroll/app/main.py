@@ -396,7 +396,12 @@ class LyricScrollApp:
             "weather_zip": "90232",          # Zip code
             "weather_units": "imperial",     # imperial/metric
             "fallback_urls": [],             # URLs to rotate in iframe
-            "fallback_rotation_seconds": 30  # Rotation interval
+            "fallback_rotation_seconds": 30, # Rotation interval
+            "neohabit_enabled": False,
+            "neohabit_api_url": "http://192.168.5.242:9000",
+            "neohabit_username": "",
+            "neohabit_password": "",
+            "neohabit_project_name": "Billy Care"
         }
 
         try:
@@ -549,11 +554,74 @@ class LyricScrollApp:
             return
 
         try:
+            # Build fallback config
+            fallbackConfig = {
+                "weather": {
+                    "apiKey": self.settings.get("weather_api_key", ""),
+                    "zip": self.settings.get("weather_zip", "90232"),
+                    "units": self.settings.get("weather_units", "imperial")
+                },
+                "iframes": self.settings.get("fallback_urls", []),
+                "rotationSeconds": self.settings.get("fallback_rotation_seconds", 30)
+            }
+
+            # Fetch Neohabit habits if enabled
+            neohabit_data = None
+            if self.settings.get("neohabit_enabled"):
+                try:
+                    api_url = self.settings.get("neohabit_api_url", "http://192.168.5.242:9000")
+                    username = self.settings.get("neohabit_username", "")
+                    password = self.settings.get("neohabit_password", "")
+                    project_name = self.settings.get("neohabit_project_name", "Billy Care")
+
+                    if username and password:
+                        async with aiohttp.ClientSession() as session:
+                            # Login
+                            async with session.post(f"{api_url}/login", json={"username": username, "password": password}) as resp:
+                                if resp.status == 200:
+                                    token_data = await resp.json()
+                                    token = token_data.get("token")
+
+                                    # Fetch projects
+                                    headers = {"Authorization": f"Bearer {token}"}
+                                    async with session.get(f"{api_url}/projects", headers=headers) as resp:
+                                        if resp.status == 200:
+                                            projects = await resp.json()
+                                            # Find the target project
+                                            for project in projects:
+                                                if project.get("name") == project_name:
+                                                    neohabit_data = {
+                                                        "projectName": project.get("name"),
+                                                        "habits": [{
+                                                            "name": h.get("name"),
+                                                            "color": h.get("color"),
+                                                            "description": h.get("description"),
+                                                            "targets": h.get("targets", []),
+                                                            "data": h.get("data", [])[-7:]  # Last 7 data points
+                                                        } for h in project.get("habits", [])]
+                                                    }
+                                                    break
+                except Exception as e:
+                    logger.warning(f"Failed to fetch Neohabit data: {e}")
+
+            # Add neohabit data to fallback config if available
+            if neohabit_data is not None:
+                fallbackConfig["neohabit"] = neohabit_data
+
+            # Clear content and send fallback data
             loop = asyncio.get_event_loop()
             await loop.run_in_executor(None, self.caster.clear_content)
             logger.info("Cleared Chromecast content")
-            # Send recent tracks so the fallback page shows them
-            await self._send_recent_tracks()
+
+            # Send recent tracks and fallback config
+            await loop.run_in_executor(
+                None,
+                lambda: self.caster.send_data({
+                    "recentTracks": self.recent_tracks,
+                    "fallbackConfig": fallbackConfig
+                })
+            )
+            logger.debug(f"Sent {len(self.recent_tracks)} recent tracks to receiver")
         except Exception as e:
             logger.error(f"Failed to clear Chromecast: {e}")
 
@@ -617,7 +685,7 @@ class LyricScrollApp:
             data = await request.json()
 
             # Update settings (only known keys)
-            for key in ["ma_players", "display_mappings", "default_player", "default_display", "autocast_enabled", "autocast_url", "display_ips", "cast_app_id", "chromecast_ip", "cast_method", "weather_api_key", "weather_zip", "weather_units", "fallback_urls", "fallback_rotation_seconds"]:
+            for key in ["ma_players", "display_mappings", "default_player", "default_display", "autocast_enabled", "autocast_url", "display_ips", "cast_app_id", "chromecast_ip", "cast_method", "weather_api_key", "weather_zip", "weather_units", "fallback_urls", "fallback_rotation_seconds", "neohabit_enabled", "neohabit_api_url", "neohabit_username", "neohabit_password", "neohabit_project_name"]:
                 if key in data:
                     self.settings[key] = data[key]
 
