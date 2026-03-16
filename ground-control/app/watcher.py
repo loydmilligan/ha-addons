@@ -40,13 +40,14 @@ class TasksFileHandler(FileSystemEventHandler):
     def _execute_callback(self):
         """Execute the callback."""
         self._pending_call = None
+        logger.info("[WATCHER] Executing reload callback after debounce")
         try:
             if asyncio.iscoroutinefunction(self.callback):
                 asyncio.create_task(self.callback())
             else:
                 self.callback()
         except Exception as e:
-            logger.error(f"Error in file change callback: {e}")
+            logger.error(f"[WATCHER] Error in file change callback: {e}")
 
     def on_modified(self, event: FileSystemEvent):
         """Handle file modification."""
@@ -54,7 +55,7 @@ class TasksFileHandler(FileSystemEventHandler):
             return
         if not event.src_path.endswith(".md"):
             return
-        logger.debug(f"File modified: {event.src_path}")
+        logger.info(f"[WATCHER] File MODIFIED: {event.src_path}")
         self._schedule_callback()
 
     def on_created(self, event: FileSystemEvent):
@@ -63,7 +64,7 @@ class TasksFileHandler(FileSystemEventHandler):
             return
         if not event.src_path.endswith(".md"):
             return
-        logger.debug(f"File created: {event.src_path}")
+        logger.info(f"[WATCHER] File CREATED: {event.src_path}")
         self._schedule_callback()
 
     def on_deleted(self, event: FileSystemEvent):
@@ -72,7 +73,7 @@ class TasksFileHandler(FileSystemEventHandler):
             return
         if not event.src_path.endswith(".md"):
             return
-        logger.debug(f"File deleted: {event.src_path}")
+        logger.info(f"[WATCHER] File DELETED: {event.src_path}")
         self._schedule_callback()
 
 
@@ -104,7 +105,10 @@ class TasksWatcher:
         self.observer.schedule(self.handler, self.path, recursive=True)
         self.observer.start()
 
-        logger.info(f"Started watching: {self.path}")
+        # Log what files exist at startup
+        md_files = list(Path(self.path).rglob("*.md"))
+        logger.info(f"[WATCHER] Started watching: {self.path}")
+        logger.info(f"[WATCHER] Found {len(md_files)} .md files: {[f.name for f in md_files]}")
 
     def stop(self):
         """Stop watching for file changes."""

@@ -39,7 +39,7 @@ CONFIG_PATHS = [
     "/share",
 ]
 
-VERSION = "0.1.6"
+VERSION = "0.1.7"
 
 # Global state
 state: TaskState = TaskState()
@@ -114,10 +114,14 @@ async def reload_state():
     global state
     try:
         state = load_task_state(tasks_path)
-        logger.info("Task state reloaded")
+        # Log counts for debugging
+        counts = {b: len(tasks) for b, tasks in state.buckets.tasks.items()}
+        logger.info(f"[RELOAD] Task state reloaded from {tasks_path}")
+        logger.info(f"[RELOAD] Task counts: {counts}")
+        logger.info(f"[RELOAD] Projects: {list(state.projects.keys())}")
         await broadcast({"type": "state", "data": state.to_dict()})
     except Exception as e:
-        logger.error(f"Error reloading state: {e}")
+        logger.error(f"[RELOAD] Error reloading state: {e}")
 
 
 def save_buckets():
@@ -221,6 +225,7 @@ async def api_get_projects(request: web.Request) -> web.Response:
 
 async def api_get_stats(request: web.Request) -> web.Response:
     """Get computed statistics for HA sensors."""
+    logger.info("[API] /api/stats called")
     buckets = state.buckets
 
     # Count tasks per bucket
