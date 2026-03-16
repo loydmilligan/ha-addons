@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.1.10
+
+- Add version and tasks_path to /api/stats endpoint for HA integration
+
+## 0.1.9
+
+- Fix ingress by using relative paths for CSS, JS, and API calls
+- WebSocket now uses pathname for ingress base path support
+- Works both via HA ingress and direct port access
+
+## 0.1.8
+
+- Fix file watcher to detect atomic writes (temp+rename pattern)
+- Add on_moved() handler for Claude's atomic file edits
+- Improved logging for file watcher events
+
+## 0.1.7
+
+- Add detailed logging for file watcher debugging
+- Log all file events (MODIFIED/CREATED/DELETED/MOVED)
+- Log task counts and projects on reload
+- Log API calls for debugging
+
+## 0.1.6
+
+- Add /api/stats endpoint for HA integration sensors
+- Add project CRUD endpoints (POST/PUT/DELETE /api/projects)
+- Completed tasks now include time (YYYY-MM-DD HH:MM)
+- Parser handles both date-only and datetime formats
+
 ## 0.1.5
 
 - Add direct port access (http://ha-ip:8100)

@@ -10,12 +10,12 @@ from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers import config_validation as cv
 
-from .const import DOMAIN, CONF_ADDON_URL
+from .const import DOMAIN, CONF_ADDON_URL, UPDATE_INTERVAL
 from .coordinator import GroundControlCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS = [Platform.SENSOR, Platform.BINARY_SENSOR]
+PLATFORMS = [Platform.SENSOR, Platform.BINARY_SENSOR, Platform.NUMBER]
 
 # Service schemas
 SERVICE_CREATE_TASK_SCHEMA = vol.Schema(
@@ -77,8 +77,9 @@ SERVICE_PROJECT_SLUG_SCHEMA = vol.Schema(
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Ground Control from a config entry."""
     addon_url = entry.data[CONF_ADDON_URL]
+    refresh_interval = entry.options.get("refresh_interval", UPDATE_INTERVAL)
 
-    coordinator = GroundControlCoordinator(hass, addon_url)
+    coordinator = GroundControlCoordinator(hass, addon_url, refresh_interval)
     await coordinator.async_config_entry_first_refresh()
 
     hass.data.setdefault(DOMAIN, {})
@@ -89,7 +90,22 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Register services
     await _async_setup_services(hass, coordinator)
 
+    # Listen for options updates
+    entry.async_on_unload(entry.add_update_listener(async_options_updated))
+
     return True
+
+
+async def async_options_updated(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Handle options update."""
+    coordinator: GroundControlCoordinator = hass.data[DOMAIN][entry.entry_id]
+    refresh_interval = entry.options.get("refresh_interval", UPDATE_INTERVAL)
+
+    from datetime import timedelta
+    coordinator.update_interval = timedelta(seconds=refresh_interval)
+    _LOGGER.info(f"Options updated: refresh_interval={refresh_interval}s")
+
+    await coordinator.async_request_refresh()
 
 
 async def _async_setup_services(

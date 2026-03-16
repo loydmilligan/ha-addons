@@ -39,7 +39,7 @@ CONFIG_PATHS = [
     "/share",
 ]
 
-VERSION = "0.1.9"
+VERSION = "0.1.10"
 
 # Global state
 state: TaskState = TaskState()
@@ -263,6 +263,8 @@ async def api_get_stats(request: web.Request) -> web.Response:
         }
 
     return web.json_response({
+        "version": VERSION,
+        "tasks_path": tasks_path,
         "active_count": active_count,
         "work_queue_count": work_queue_count,
         "total_open": total_open,

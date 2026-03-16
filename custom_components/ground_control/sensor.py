@@ -39,6 +39,9 @@ async def async_setup_entry(
     for key, name, icon, unit in SENSORS:
         entities.append(GroundControlSensor(coordinator, key, name, icon, unit))
 
+    # Add addon version sensor
+    entities.append(AddonVersionSensor(coordinator))
+
     # Add project sensors dynamically
     if coordinator.data and "stats" in coordinator.data:
         projects = coordinator.data["stats"].get("projects", {})
@@ -164,3 +167,32 @@ class ProjectProgressSensor(CoordinatorEntity, SensorEntity):
             projects = self.coordinator.data["stats"].get("projects", {})
             return projects.get(self._slug, {}).get("progress", 0)
         return 0
+
+
+class AddonVersionSensor(CoordinatorEntity, SensorEntity):
+    """Sensor showing the Ground Control addon version."""
+
+    _attr_has_entity_name = True
+    _attr_name = "Addon Version"
+    _attr_unique_id = "ground_control_addon_version"
+    _attr_icon = "mdi:information"
+
+    def __init__(self, coordinator: GroundControlCoordinator) -> None:
+        """Initialize the sensor."""
+        super().__init__(coordinator)
+
+    @property
+    def native_value(self) -> str:
+        """Return the addon version."""
+        if self.coordinator.data and "stats" in self.coordinator.data:
+            return self.coordinator.data["stats"].get("version", "unknown")
+        return "unknown"
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        """Return additional attributes."""
+        if self.coordinator.data and "stats" in self.coordinator.data:
+            return {
+                "tasks_path": self.coordinator.data["stats"].get("tasks_path", "unknown"),
+            }
+        return {}

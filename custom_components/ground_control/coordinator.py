@@ -18,13 +18,13 @@ _LOGGER = logging.getLogger(__name__)
 class GroundControlCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     """Coordinator to fetch data from Ground Control addon."""
 
-    def __init__(self, hass: HomeAssistant, addon_url: str) -> None:
+    def __init__(self, hass: HomeAssistant, addon_url: str, refresh_interval: int = UPDATE_INTERVAL) -> None:
         """Initialize the coordinator."""
         super().__init__(
             hass,
             _LOGGER,
             name=DOMAIN,
-            update_interval=timedelta(seconds=UPDATE_INTERVAL),
+            update_interval=timedelta(seconds=refresh_interval),
         )
         self.addon_url = addon_url.rstrip("/")
         self._session: aiohttp.ClientSession | None = None
