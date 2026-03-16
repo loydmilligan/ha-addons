@@ -76,6 +76,19 @@ class TasksFileHandler(FileSystemEventHandler):
         logger.info(f"[WATCHER] File DELETED: {event.src_path}")
         self._schedule_callback()
 
+    def on_moved(self, event: FileSystemEvent):
+        """Handle file move/rename (catches atomic writes: temp -> target)."""
+        if event.is_directory:
+            return
+        # Check destination path for atomic writes
+        dest_path = getattr(event, 'dest_path', '')
+        if dest_path.endswith(".md"):
+            logger.info(f"[WATCHER] File MOVED: {event.src_path} -> {dest_path}")
+            self._schedule_callback()
+        elif event.src_path.endswith(".md"):
+            logger.info(f"[WATCHER] File MOVED (src): {event.src_path}")
+            self._schedule_callback()
+
 
 class TasksWatcher:
     """Watch .tasks/ directory for changes."""
