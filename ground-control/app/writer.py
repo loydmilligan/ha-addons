@@ -243,3 +243,81 @@ def delete_task(buckets: BucketsFile, task_id: str) -> bool:
                 tasks.remove(task)
                 return True
     return False
+
+
+def slugify(name: str) -> str:
+    """Convert a name to a URL-safe slug."""
+    import re
+    # Lowercase, replace spaces with hyphens, remove non-alphanumeric
+    slug = name.lower().strip()
+    slug = re.sub(r'\s+', '-', slug)
+    slug = re.sub(r'[^a-z0-9-]', '', slug)
+    slug = re.sub(r'-+', '-', slug)
+    return slug.strip('-')
+
+
+def create_project(
+    tasks_path: str,
+    name: str,
+    goal: str,
+    description: str = "",
+) -> Project:
+    """Create a new project with generated slug."""
+    slug = slugify(name)
+
+    project = Project(
+        slug=slug,
+        name=name,
+        status="not_started",
+        goal=goal,
+        description=description,
+    )
+
+    # Ensure projects directory exists
+    projects_dir = Path(tasks_path) / "projects"
+    projects_dir.mkdir(parents=True, exist_ok=True)
+
+    # Write project file
+    project_path = projects_dir / f"{slug}.md"
+    write_project_file(str(project_path), project)
+
+    return project
+
+
+def update_project(
+    tasks_path: str,
+    slug: str,
+    status: str = None,
+    goal: str = None,
+    name: str = None,
+) -> Project:
+    """Update an existing project."""
+    from parser import parse_project_file
+
+    project_path = Path(tasks_path) / "projects" / f"{slug}.md"
+    if not project_path.exists():
+        return None
+
+    # Load existing project
+    project = parse_project_file(str(project_path))
+    if not project:
+        return None
+
+    # Update fields
+    if status is not None:
+        project.status = status
+    if goal is not None:
+        project.goal = goal
+    if name is not None:
+        project.name = name
+
+    # Write updated project
+    write_project_file(str(project_path), project)
+
+    return project
+
+
+def archive_project(tasks_path: str, slug: str) -> bool:
+    """Archive a project by setting its status to 'archived'."""
+    project = update_project(tasks_path, slug, status="archived")
+    return project is not None

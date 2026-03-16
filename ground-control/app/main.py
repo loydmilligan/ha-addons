@@ -18,6 +18,9 @@ from writer import (
     move_task,
     complete_task,
     delete_task,
+    create_project,
+    update_project,
+    archive_project,
 )
 from watcher import TasksWatcher
 
@@ -36,7 +39,7 @@ CONFIG_PATHS = [
     "/share",
 ]
 
-VERSION = "0.1.5"
+VERSION = "0.1.6"
 
 # Global state
 state: TaskState = TaskState()
@@ -216,6 +219,56 @@ async def api_get_projects(request: web.Request) -> web.Response:
     return web.json_response(projects)
 
 
+async def api_get_stats(request: web.Request) -> web.Response:
+    """Get computed statistics for HA sensors."""
+    buckets = state.buckets
+
+    # Count tasks per bucket
+    active_count = len(buckets.tasks.get("active", []))
+    work_queue_count = len(buckets.tasks.get("work_queue", []))
+    completed_count = len(buckets.tasks.get("completed", []))
+
+    # Total open = all non-completed tasks
+    total_open = sum(
+        len(tasks) for bucket, tasks in buckets.tasks.items()
+        if bucket != "completed"
+    )
+
+    # Count blocked tasks
+    blocked_count = sum(
+        1 for task in buckets.get_all_tasks()
+        if task.is_blocked()
+    )
+
+    # Project stats
+    project_stats = {}
+    for slug, project in state.projects.items():
+        # Count tasks for this project
+        project_tasks = [t for t in buckets.get_all_tasks() if t.project == slug]
+        open_tasks = len([t for t in project_tasks if t.bucket != "completed"])
+        completed_tasks = len([t for t in project_tasks if t.bucket == "completed"])
+        total = open_tasks + completed_tasks
+        progress = int((completed_tasks / total * 100)) if total > 0 else 0
+
+        project_stats[slug] = {
+            "status": project.status,
+            "open_tasks": open_tasks,
+            "completed_tasks": completed_tasks,
+            "progress": progress,
+        }
+
+    return web.json_response({
+        "active_count": active_count,
+        "work_queue_count": work_queue_count,
+        "total_open": total_open,
+        "completed_count": completed_count,
+        "blocked_count": blocked_count,
+        "has_active": active_count > 0,
+        "has_blocked": blocked_count > 0,
+        "projects": project_stats,
+    })
+
+
 async def api_create_task(request: web.Request) -> web.Response:
     """Create a new task."""
     try:
@@ -355,6 +408,77 @@ async def api_delete_task(request: web.Request) -> web.Response:
     return web.json_response({"success": True})
 
 
+# --- Project API Routes ---
+
+
+async def api_create_project(request: web.Request) -> web.Response:
+    """Create a new project."""
+    try:
+        data = await request.json()
+    except json.JSONDecodeError:
+        return web.json_response({"error": "Invalid JSON"}, status=400)
+
+    name = data.get("name", "").strip()
+    if not name:
+        return web.json_response({"error": "Name is required"}, status=400)
+
+    goal = data.get("goal", "").strip()
+    if not goal:
+        return web.json_response({"error": "Goal is required"}, status=400)
+
+    description = data.get("description", "")
+
+    project = create_project(tasks_path, name, goal, description)
+
+    # Reload state to pick up the new project
+    await reload_state()
+    await broadcast({"type": "project_created", "data": project.to_dict()})
+
+    return web.json_response(project.to_dict(), status=201)
+
+
+async def api_update_project(request: web.Request) -> web.Response:
+    """Update an existing project."""
+    slug = request.match_info.get("slug", "")
+
+    try:
+        data = await request.json()
+    except json.JSONDecodeError:
+        return web.json_response({"error": "Invalid JSON"}, status=400)
+
+    project = update_project(
+        tasks_path,
+        slug,
+        status=data.get("status"),
+        goal=data.get("goal"),
+        name=data.get("name"),
+    )
+
+    if not project:
+        return web.json_response({"error": "Project not found"}, status=404)
+
+    # Reload state to pick up the changes
+    await reload_state()
+    await broadcast({"type": "project_updated", "data": project.to_dict()})
+
+    return web.json_response(project.to_dict())
+
+
+async def api_archive_project(request: web.Request) -> web.Response:
+    """Archive a project."""
+    slug = request.match_info.get("slug", "")
+
+    success = archive_project(tasks_path, slug)
+    if not success:
+        return web.json_response({"error": "Project not found"}, status=404)
+
+    # Reload state
+    await reload_state()
+    await broadcast({"type": "project_archived", "data": {"slug": slug}})
+
+    return web.json_response({"success": True})
+
+
 # --- Application Setup ---
 
 
@@ -372,11 +496,17 @@ def create_app() -> web.Application:
     app.router.add_get("/api/version", api_get_version)
     app.router.add_get("/api/tasks", api_get_tasks)
     app.router.add_get("/api/projects", api_get_projects)
+    app.router.add_get("/api/stats", api_get_stats)
     app.router.add_post("/api/tasks", api_create_task)
     app.router.add_put("/api/tasks/{id}", api_update_task)
     app.router.add_post("/api/tasks/{id}/move", api_move_task)
     app.router.add_post("/api/tasks/{id}/complete", api_complete_task)
     app.router.add_delete("/api/tasks/{id}", api_delete_task)
+
+    # Project routes
+    app.router.add_post("/api/projects", api_create_project)
+    app.router.add_put("/api/projects/{slug}", api_update_project)
+    app.router.add_delete("/api/projects/{slug}", api_archive_project)
 
     return app
 
