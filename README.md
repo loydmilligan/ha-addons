@@ -1,21 +1,27 @@
-# Lyric Scroll
+# Home Assistant Addons
 
-An application that displays synchronized, scrolling lyrics as a visual animation or video overlay for music playing from YouTube Music, Spotify, or YouTube.
+Custom Home Assistant addons for music visualization and task management.
 
-## Vision
+## Addons
 
-Transform the music listening experience by providing beautifully animated, real-time synchronized lyrics that scroll in sync with the currently playing track. The goal is a seamless visual experience across multiple music platforms.
+| Addon | Version | Description |
+|-------|---------|-------------|
+| [Lyric Scroll](lyric-scroll/) | v0.5.16 | Synchronized, scrolling karaoke-style lyrics for Music Assistant. Supports casting to Chromecast/Nest Hub. |
+| [Ground Control](ground-control/) | v0.1.5 | Task and project management Kanban board, synced with `.tasks/` markdown files. |
 
-## Target Platforms
+## Installation
 
-- YouTube Music
-- Spotify
-- YouTube (music videos)
+Add this repository to Home Assistant:
 
-## Status
+1. Go to **Settings > Add-ons > Add-on Store**
+2. Click the three dots menu (top right) > **Repositories**
+3. Add: `https://github.com/loydmilligan/ha-addons`
+4. Find and install the addon you want
 
-🚧 **Project in early planning phase** - Architecture and implementation approach to be determined.
+## Development
+
+This repo uses a Claude Code agent (**GCA**) that coordinates with **Major Tom** (running in Home Assistant) via MQTT messaging. See `.claude/sync/README.md` for protocol details.
 
 ## License
 
-TBD
+MIT

@@ -4,6 +4,81 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
+**ha-addons** is a repository containing Home Assistant addons:
+
+| Addon | Version | Description |
+|-------|---------|-------------|
+| **Lyric Scroll** | v0.5.16 | Synchronized, scrolling lyrics for Music Assistant |
+| **Ground Control** | v0.1.5 | Task and project management UI |
+
+## Agent Identity
+
+You are **GCA (Ground Control Agent)**. You build and maintain the HA addons in this repo.
+
+Your counterpart is **Major Tom**, who operates inside Home Assistant (`/config/` in ha-config repo). You coordinate with Major Tom via MQTT messaging (see Agent Sync System below).
+
+---
+
+## Agent Sync System
+
+GCA and Major Tom communicate via MQTT with automatic message delivery.
+
+### How It Works
+
+1. **MQTT Transport**: Messages are JSON payloads on retained topics
+2. **Hook Automation**: A `UserPromptSubmit` hook auto-receives messages at each turn
+3. **Messages appear in context**: New messages from Major Tom show as `[MQTT SYNC]` system reminders
+
+### Quick Commands
+
+```bash
+# Check for new messages (auto-runs via hook)
+cd .claude/sync && source .venv/bin/activate && python mqtt-sync.py receive
+
+# Send messages from outbox
+python mqtt-sync.py send
+
+# Test connection
+python mqtt-sync.py status
+```
+
+### Writing Messages
+
+Create `.md` files in `.claude/sync/outbox/` with this format:
+
+```markdown
+---
+from: gca
+to: major-tom
+date: 2026-03-15
+subject: Brief subject
+type: update
+priority: normal
+response: none
+---
+
+# Subject
+
+Content here.
+```
+
+Then run `python mqtt-sync.py send` to publish.
+
+### Message Types
+- `handoff` - Passing work or context
+- `question` - Requesting information
+- `update` - Status update
+- `ack` - Acknowledging receipt
+
+### Response Field
+- `required` - You're blocked, need answer
+- `optional` - Feedback welcome, will proceed if none
+- `none` - Informational only (default)
+
+---
+
+## Lyric Scroll Addon
+
 Lyric Scroll is a Home Assistant addon that displays synchronized, scrolling lyrics for music playing via Music Assistant. It supports casting to Google Cast devices (Chromecast, Nest Hub, etc.).
 
 ## Terminology & Glossary
@@ -110,9 +185,17 @@ Logs and LRC files are synced via PowerShell watcher to local folder:
 - **Path in WSL**: `/mnt/c/Users/mmariani/Music/lrc/`
 - **Logs**: `/mnt/c/Users/mmariani/Music/lrc/logs/lyric_scroll.log`
 
-**Sync Script**: `C:\Users\mmariani\scripts\sync-lrc.ps1` (polls every 2s)
+**Sync Script**: `C:\Users\mmariani\scripts\sync-lrc.ps1`
 - Run in PowerShell: `.\sync-lrc.ps1`
-- Keeps running and syncs new LRC files and logs automatically
+- LRC files: synced every 2s (real-time for lyrics)
+- Log files: synced every 30s (less bandwidth for large logs)
+
+**Quick log access**:
+```bash
+python3 tests/ha_control.py logs           # Last 50 lines
+python3 tests/ha_control.py logs -n 100    # Last 100 lines
+python3 tests/ha_control.py logs -f        # Follow (tail -f)
+```
 
 ## Roadmap
 
@@ -137,12 +220,17 @@ Logs and LRC files are synced via PowerShell watcher to local folder:
 
 | Script | Purpose |
 |--------|---------|
-| `ha_control.py` | Control HA/addon: restart, play, pause, status, position |
+| `ha_control.py` | Control HA/addon: restart, play, pause, status, position, logs |
 | `quick_sync_check.py` | API-only sync monitoring, detects jumps/stutters |
 | `sync_test.py` | Full test with screenshots (requires playwright) |
 
 **Usage:**
 ```bash
+# View addon logs (synced via PowerShell)
+python3 tests/ha_control.py logs          # Last 50 lines
+python3 tests/ha_control.py logs -n 100   # Last 100 lines
+python3 tests/ha_control.py logs -f       # Follow mode (tail -f)
+
 # Check current position from both addon and HA
 python3 tests/ha_control.py position
 
@@ -160,3 +248,58 @@ python3 tests/ha_control.py restart-addon
 # Full sync test with screenshots (uses venv for playwright)
 cd tests && .venv/bin/python sync_test.py --checks 5 --interval 10
 ```
+
+---
+
+## Ground Control Addon
+
+Task and project management UI for Home Assistant. Displays a Kanban board synced with `.tasks/` markdown files.
+
+### Key Files
+
+| File | Purpose |
+|------|---------|
+| `ground-control/app/main.py` | Backend API server |
+| `ground-control/frontend/` | Web UI |
+| `ground-control/config.yaml` | HA addon configuration |
+
+### Features
+
+- Kanban board UI
+- Parse/sync `.tasks/` markdown files
+- Project progress tracking
+- File watching for external changes
+
+### Version
+
+Current: **v0.1.5**
+
+Update version in `ground-control/config.yaml` when making changes.
+
+---
+
+## Repository Structure
+
+```
+ha-addons/
+├── .claude/
+│   └── sync/              # Agent sync system (MQTT)
+│       ├── mqtt-sync.py   # Send/receive messages
+│       ├── inbox/         # Messages from Major Tom
+│       ├── outbox/        # Messages to Major Tom
+│       └── archive/       # Processed messages
+├── ground-control/        # Task management addon (v0.1.5)
+├── lyric-scroll/          # Lyrics display addon (v0.5.16)
+├── docs/                  # Design docs (mostly for lyric-scroll)
+├── tests/                 # Test scripts
+└── scripts/               # Utility scripts
+```
+
+## Versioning
+
+When making changes to an addon:
+
+1. Update version in `<addon>/config.yaml`
+2. Update `<addon>/CHANGELOG.md`
+3. Commit with version in message: `"Description (vX.Y.Z)"`
+4. Push to trigger HA addon refresh
