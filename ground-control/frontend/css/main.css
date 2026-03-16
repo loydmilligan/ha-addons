@@ -134,6 +134,15 @@ body {
     background: var(--border);
 }
 
+.btn-small {
+    padding: 0.375rem 0.75rem;
+    font-size: 0.75rem;
+}
+
+.sort-icon {
+    font-weight: bold;
+}
+
 /* Main Content */
 .main {
     padding: 1.5rem;
@@ -325,6 +334,9 @@ body {
 
 /* History View */
 .history-filters {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
     margin-bottom: 1rem;
 }
 
@@ -356,7 +368,7 @@ body {
 .history-date {
     font-size: 0.75rem;
     color: var(--text-secondary);
-    min-width: 80px;
+    min-width: 120px;
 }
 
 .history-subject {

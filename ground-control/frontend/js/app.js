@@ -12,6 +12,7 @@ class GroundControl {
         this.ws = null;
         this.currentView = 'kanban';
         this.editingTask = null;
+        this.historySortNewest = true;
 
         this.init();
     }
@@ -109,6 +110,22 @@ class GroundControl {
         document.getElementById('history-project-filter').addEventListener('change', () => {
             this.renderHistory();
         });
+
+        // History sort toggle
+        document.getElementById('history-sort-toggle').addEventListener('click', () => {
+            this.historySortNewest = !this.historySortNewest;
+            this.updateSortToggle();
+            this.renderHistory();
+        });
+    }
+
+    updateSortToggle() {
+        const btn = document.getElementById('history-sort-toggle');
+        if (this.historySortNewest) {
+            btn.innerHTML = '<span class="sort-icon">↓</span> Newest First';
+        } else {
+            btn.innerHTML = '<span class="sort-icon">↑</span> Oldest First';
+        }
     }
 
     // Drag and Drop
@@ -266,9 +283,13 @@ class GroundControl {
             tasks = tasks.filter(t => t.project === filter);
         }
 
-        // Sort by completed date descending
+        // Sort by completed date (newest or oldest first based on toggle)
         tasks = [...tasks].sort((a, b) => {
-            return (b.completed_date || '').localeCompare(a.completed_date || '');
+            const dateA = a.completed_date || '';
+            const dateB = b.completed_date || '';
+            return this.historySortNewest
+                ? dateB.localeCompare(dateA)
+                : dateA.localeCompare(dateB);
         });
 
         if (!tasks.length) {

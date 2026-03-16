@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.11
+
+- History tab now defaults to newest first
+- Add sort toggle button to switch between newest/oldest first
+
 ## 0.1.10
 
 - Add version and tasks_path to /api/stats endpoint for HA integration
