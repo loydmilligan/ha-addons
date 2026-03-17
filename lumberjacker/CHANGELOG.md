@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.2
+
+- Fix log pattern regex to handle optional milliseconds and flexible whitespace
+- Add detailed logging: matched lines, severity filtered, etc.
+
 ## 0.2.1
 
 - Add `hassio_role: homeassistant` to fix 403 error on Supervisor API

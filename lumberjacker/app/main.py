@@ -60,12 +60,13 @@ PRIORITY_MEDIUM = "medium"
 PRIORITY_LOW = "low"
 
 # Log line pattern: "2026-03-15 10:30:45.123 ERROR (MainThread) [component] Message"
+# Also handles: "2026-03-15 10:30:45.123 ERROR (MainThread) [component] [extra] Message"
 LOG_PATTERN = re.compile(
-    r"^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3})\s+"
+    r"^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}(?:\.\d+)?)\s+"
     r"(DEBUG|INFO|WARNING|ERROR|CRITICAL)\s+"
     r"\(([^)]+)\)\s+"
-    r"\[([^\]]+)\]\s+"
-    r"(.+)$"
+    r"\[([^\]]+)\]\s*"
+    r"(.*)$"
 )
 
 
@@ -217,6 +218,9 @@ class LogWatcher:
         new_issues = []
         lines_processed = 0
         new_lines = 0
+        matched_lines = 0
+        severity_filtered = 0
+        sample_logged = False
 
         for line in log_text.split('\n'):
             line = line.strip()
@@ -233,15 +237,23 @@ class LogWatcher:
             self.seen_lines.add(line_hash)
             new_lines += 1
 
+            # Log first few new lines for debugging
+            if not sample_logged and new_lines <= 3:
+                logger.debug(f"Sample line: {line[:150]}")
+            if new_lines == 3:
+                sample_logged = True
+
             match = LOG_PATTERN.match(line)
             if not match:
                 continue
 
+            matched_lines += 1
             timestamp, severity, thread, component, message = match.groups()
             severity_level = SEVERITY_LEVELS.get(severity.lower(), 3)
 
             # Filter by threshold
             if severity_level > self.severity_threshold:
+                severity_filtered += 1
                 continue
 
             # Deduplicate
@@ -254,7 +266,7 @@ class LogWatcher:
                 new_issues.append(issue)
 
         if new_lines > 0:
-            logger.info(f"Processed {lines_processed} lines, {new_lines} new, {len(new_issues)} new issues")
+            logger.info(f"Processed {lines_processed} lines, {new_lines} new, {matched_lines} matched pattern, {severity_filtered} below threshold, {len(new_issues)} new issues")
 
         self._save_state()
         self._write_output()
