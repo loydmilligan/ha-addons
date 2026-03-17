@@ -1,18 +1,20 @@
 #!/usr/bin/env python3
 """Lumberjacker - HA Log Watcher and Triage System.
 
-Watches Home Assistant logs, identifies real problems,
+Watches Home Assistant logs via Supervisor API, identifies real problems,
 triages/prioritizes them, and outputs to a file for task creation.
 """
 
 import asyncio
 import json
 import logging
+import os
 import re
 from datetime import datetime
+from hashlib import md5
 from pathlib import Path
-from typing import Optional
 
+import aiohttp
 from aiohttp import web
 
 # Configure logging
@@ -27,13 +29,16 @@ OPTIONS_PATH = Path("/data/options.json")
 OUTPUT_PATH = Path("/share/lumberjacker/issues.json")
 STATE_PATH = Path("/data/lumberjacker_state.json")
 
+# Supervisor API
+SUPERVISOR_URL = "http://supervisor/core/logs"
+SUPERVISOR_TOKEN = os.environ.get("SUPERVISOR_TOKEN", "")
+
 
 def load_options():
     """Load addon options from HA."""
     if OPTIONS_PATH.exists():
         return json.loads(OPTIONS_PATH.read_text())
     return {
-        "log_path": "/config/home-assistant.log",
         "check_interval": 60,
         "severity_threshold": "warning"
     }
@@ -139,13 +144,13 @@ class Issue:
 
 
 class LogWatcher:
-    """Watches HA logs and extracts issues."""
+    """Watches HA logs via Supervisor API and extracts issues."""
 
-    def __init__(self, log_path: str, severity_threshold: str = "warning"):
-        self.log_path = Path(log_path)
+    def __init__(self, severity_threshold: str = "warning"):
         self.severity_threshold = SEVERITY_LEVELS.get(severity_threshold.lower(), 2)
-        self.last_position = 0
+        self.seen_lines: set[str] = set()  # Track processed lines by hash
         self.issues: dict[str, Issue] = {}
+        self.session: aiohttp.ClientSession | None = None
         self._load_state()
 
     def _load_state(self):
@@ -153,17 +158,26 @@ class LogWatcher:
         if STATE_PATH.exists():
             try:
                 state = json.loads(STATE_PATH.read_text())
-                self.last_position = state.get("last_position", 0)
+                self.seen_lines = set(state.get("seen_lines", []))
+                # Limit stored hashes to prevent unbounded growth
+                if len(self.seen_lines) > 10000:
+                    self.seen_lines = set(list(self.seen_lines)[-5000:])
             except Exception:
                 pass
 
     def _save_state(self):
         """Save current state."""
         STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        # Only keep recent hashes
+        recent_hashes = list(self.seen_lines)[-5000:]
         STATE_PATH.write_text(json.dumps({
-            "last_position": self.last_position,
+            "seen_lines": recent_hashes,
             "last_check": datetime.now().isoformat()
         }))
+
+    def _line_hash(self, line: str) -> str:
+        """Generate a hash for a log line."""
+        return md5(line.encode()).hexdigest()[:16]
 
     def _issue_key(self, component: str, message: str) -> str:
         """Generate a key for deduplication."""
@@ -173,44 +187,74 @@ class LogWatcher:
         normalized = re.sub(r'\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b', '<ip>', normalized)
         return f"{component}:{normalized[:100]}"
 
+    async def _fetch_logs(self) -> str:
+        """Fetch logs from Supervisor API."""
+        if not self.session:
+            self.session = aiohttp.ClientSession()
+
+        headers = {
+            "Authorization": f"Bearer {SUPERVISOR_TOKEN}",
+            "Content-Type": "text/plain",
+        }
+
+        try:
+            async with self.session.get(SUPERVISOR_URL, headers=headers) as resp:
+                if resp.status == 200:
+                    return await resp.text()
+                else:
+                    logger.error(f"Supervisor API returned {resp.status}")
+                    return ""
+        except Exception as e:
+            logger.error(f"Error fetching logs from Supervisor: {e}")
+            return ""
+
     async def check_logs(self) -> list[Issue]:
-        """Check for new log entries."""
-        if not self.log_path.exists():
-            logger.warning(f"Log file not found: {self.log_path}")
+        """Check for new log entries via Supervisor API."""
+        log_text = await self._fetch_logs()
+        if not log_text:
             return []
 
         new_issues = []
+        lines_processed = 0
+        new_lines = 0
 
-        try:
-            with open(self.log_path, 'r') as f:
-                # Seek to last position
-                f.seek(self.last_position)
+        for line in log_text.split('\n'):
+            line = line.strip()
+            if not line:
+                continue
 
-                for line in f:
-                    match = LOG_PATTERN.match(line.strip())
-                    if not match:
-                        continue
+            lines_processed += 1
 
-                    timestamp, severity, thread, component, message = match.groups()
-                    severity_level = SEVERITY_LEVELS.get(severity.lower(), 3)
+            # Skip already-seen lines
+            line_hash = self._line_hash(line)
+            if line_hash in self.seen_lines:
+                continue
 
-                    # Filter by threshold
-                    if severity_level > self.severity_threshold:
-                        continue
+            self.seen_lines.add(line_hash)
+            new_lines += 1
 
-                    # Deduplicate
-                    key = self._issue_key(component, message)
-                    if key in self.issues:
-                        self.issues[key].update(timestamp, message)
-                    else:
-                        issue = Issue(severity, component, message, timestamp)
-                        self.issues[key] = issue
-                        new_issues.append(issue)
+            match = LOG_PATTERN.match(line)
+            if not match:
+                continue
 
-                self.last_position = f.tell()
+            timestamp, severity, thread, component, message = match.groups()
+            severity_level = SEVERITY_LEVELS.get(severity.lower(), 3)
 
-        except Exception as e:
-            logger.error(f"Error reading log: {e}")
+            # Filter by threshold
+            if severity_level > self.severity_threshold:
+                continue
+
+            # Deduplicate
+            key = self._issue_key(component, message)
+            if key in self.issues:
+                self.issues[key].update(timestamp, message)
+            else:
+                issue = Issue(severity, component, message, timestamp)
+                self.issues[key] = issue
+                new_issues.append(issue)
+
+        if new_lines > 0:
+            logger.info(f"Processed {lines_processed} lines, {new_lines} new, {len(new_issues)} new issues")
 
         self._save_state()
         self._write_output()
@@ -241,7 +285,6 @@ class LogWatcher:
         }
 
         OUTPUT_PATH.write_text(json.dumps(output, indent=2))
-        logger.info(f"Wrote {len(sorted_issues)} issues to {OUTPUT_PATH}")
 
     def get_issues(self) -> list[dict]:
         """Get all issues as dicts."""
@@ -256,6 +299,11 @@ class LogWatcher:
                 return True
         return False
 
+    async def close(self):
+        """Close the HTTP session."""
+        if self.session:
+            await self.session.close()
+
 
 class WebServer:
     """Web UI for viewing triaged issues."""
@@ -269,6 +317,7 @@ class WebServer:
         self.app.router.add_get("/", self.handle_index)
         self.app.router.add_get("/api/issues", self.handle_issues)
         self.app.router.add_post("/api/issues/{id}/dismiss", self.handle_dismiss)
+        self.app.router.add_post("/api/refresh", self.handle_refresh)
         self.app.router.add_get("/api/health", self.handle_health)
 
     async def handle_index(self, request):
@@ -298,24 +347,31 @@ class WebServer:
                 .issue.low { border-left-color: #4caf50; }
                 .issue-header { display: flex; justify-content: space-between; margin-bottom: 0.5rem; }
                 .issue-meta { font-size: 0.8rem; color: #888; }
-                .issue-message { font-family: monospace; font-size: 0.9rem; }
+                .issue-message { font-family: monospace; font-size: 0.9rem; word-break: break-word; }
                 .badge { padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.7rem; text-transform: uppercase; }
                 .badge-critical { background: #e94560; }
                 .badge-high { background: #ff6b35; }
                 .badge-medium { background: #f9a825; color: #000; }
                 .badge-low { background: #4caf50; }
                 .empty { color: #888; font-style: italic; padding: 2rem; text-align: center; }
+                .refresh-btn { background: #e94560; border: none; color: white; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; margin-bottom: 1rem; }
+                .refresh-btn:hover { background: #d63050; }
+                .status { color: #888; font-size: 0.8rem; margin-bottom: 1rem; }
             </style>
         </head>
         <body>
-            <h1>🪓 Lumberjacker</h1>
-            <p class="subtitle">HA Log Triage System</p>
+            <h1>Lumberjacker</h1>
+            <p class="subtitle">HA Log Triage System (via Supervisor API)</p>
+            <button class="refresh-btn" onclick="refresh()">Refresh Now</button>
+            <div class="status" id="status"></div>
             <div class="stats" id="stats"></div>
             <div class="issues" id="issues"></div>
             <script>
                 async function loadIssues() {
-                    const res = await fetch('/api/issues');
+                    const res = await fetch('api/issues');
                     const data = await res.json();
+
+                    document.getElementById('status').textContent = `Last updated: ${data.generated_at || 'never'} | Total issues: ${data.total_issues || 0}`;
 
                     document.getElementById('stats').innerHTML = `
                         <div class="stat critical"><div class="stat-value">${data.by_priority?.critical || 0}</div><div class="stat-label">Critical</div></div>
@@ -326,7 +382,7 @@ class WebServer:
 
                     const issues = data.issues || [];
                     if (issues.length === 0) {
-                        document.getElementById('issues').innerHTML = '<div class="empty">No issues found. Logs are clean! 🎉</div>';
+                        document.getElementById('issues').innerHTML = '<div class="empty">No issues found. Logs are clean!</div>';
                         return;
                     }
 
@@ -336,11 +392,24 @@ class WebServer:
                                 <span><span class="badge badge-${i.priority}">${i.priority}</span> <strong>${i.component}</strong></span>
                                 <span class="issue-meta">${i.count}x | ${i.category}</span>
                             </div>
-                            <div class="issue-message">${i.message}</div>
+                            <div class="issue-message">${escapeHtml(i.message)}</div>
                             <div class="issue-meta">First: ${i.first_seen} | Last: ${i.last_seen}</div>
                         </div>
                     `).join('');
                 }
+
+                function escapeHtml(text) {
+                    const div = document.createElement('div');
+                    div.textContent = text;
+                    return div.innerHTML;
+                }
+
+                async function refresh() {
+                    document.getElementById('status').textContent = 'Refreshing...';
+                    await fetch('api/refresh', {method: 'POST'});
+                    await loadIssues();
+                }
+
                 loadIssues();
                 setInterval(loadIssues, 30000);
             </script>
@@ -353,7 +422,7 @@ class WebServer:
         """API: Get triaged issues."""
         if OUTPUT_PATH.exists():
             return web.json_response(json.loads(OUTPUT_PATH.read_text()))
-        return web.json_response({"issues": [], "total_issues": 0})
+        return web.json_response({"issues": [], "total_issues": 0, "by_priority": {}})
 
     async def handle_dismiss(self, request):
         """API: Dismiss an issue."""
@@ -361,6 +430,11 @@ class WebServer:
         if self.watcher.dismiss_issue(issue_id):
             return web.json_response({"status": "dismissed"})
         return web.json_response({"error": "not found"}, status=404)
+
+    async def handle_refresh(self, request):
+        """API: Force refresh logs now."""
+        await self.watcher.check_logs()
+        return web.json_response({"status": "refreshed"})
 
     async def handle_health(self, request):
         """Health check."""
@@ -371,42 +445,26 @@ async def main():
     """Main entry point."""
     options = load_options()
     logger.info(f"Lumberjacker starting with options: {options}")
-
-    # Debug: show what's in /config
-    config_path = Path("/config")
-    if config_path.exists():
-        logger.info(f"/config exists, contents: {list(config_path.iterdir())[:20]}")
-    else:
-        logger.warning("/config directory does not exist!")
-
-    # Check alternative log locations
-    log_locations = [
-        "/config/home-assistant.log",
-        "/homeassistant/home-assistant.log",
-        "/config/logs/home-assistant.log",
-    ]
-    for loc in log_locations:
-        p = Path(loc)
-        if p.exists():
-            logger.info(f"Found log at: {loc} (size: {p.stat().st_size} bytes)")
-        else:
-            logger.debug(f"No log at: {loc}")
+    logger.info(f"Using Supervisor API at: {SUPERVISOR_URL}")
+    logger.info(f"Supervisor token present: {bool(SUPERVISOR_TOKEN)}")
 
     # Initialize watcher
     watcher = LogWatcher(
-        log_path=options.get("log_path", "/config/home-assistant.log"),
         severity_threshold=options.get("severity_threshold", "warning")
     )
 
     # Initialize web server
     server = WebServer(watcher)
 
+    # Do initial log check
+    await watcher.check_logs()
+
     # Start periodic log checking
     async def check_loop():
         interval = options.get("check_interval", 60)
         while True:
-            await watcher.check_logs()
             await asyncio.sleep(interval)
+            await watcher.check_logs()
 
     asyncio.create_task(check_loop())
 
@@ -420,8 +478,11 @@ async def main():
     logger.info(f"Output file: {OUTPUT_PATH}")
 
     # Keep running
-    while True:
-        await asyncio.sleep(3600)
+    try:
+        while True:
+            await asyncio.sleep(3600)
+    finally:
+        await watcher.close()
 
 
 if __name__ == "__main__":

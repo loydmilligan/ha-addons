@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.0
+
+- Switch from file-based log reading to Supervisor API
+- No longer requires log file to exist on disk
+- Add "Refresh Now" button to UI
+- Show last updated timestamp in UI
+- Track processed lines by hash to avoid re-processing
+- Remove log_path config option (now uses API)
+
 ## 0.1.1
 
 - Add debug logging to diagnose log file path issues

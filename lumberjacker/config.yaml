@@ -1,5 +1,5 @@
 name: Lumberjacker
-version: "0.1.1"
+version: "0.2.0"
 slug: lumberjacker
 description: HA log watcher that triages and prioritizes log issues
 url: https://github.com/loydmilligan/ha-addons
@@ -23,11 +23,9 @@ homeassistant_api: true
 hassio_api: true
 auth_api: true
 options:
-  log_path: "/config/home-assistant.log"
   check_interval: 60
   severity_threshold: "warning"
 schema:
-  log_path: str
   check_interval: int
   severity_threshold: list(error|warning|info)?
 map:
