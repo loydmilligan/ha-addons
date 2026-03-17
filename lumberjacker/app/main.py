@@ -59,13 +59,10 @@ PRIORITY_HIGH = "high"
 PRIORITY_MEDIUM = "medium"
 PRIORITY_LOW = "low"
 
-# Log line pattern: "2026-03-15 10:30:45.123 ERROR (MainThread) [component] Message"
-# Also handles: "2026-03-15 10:30:45.123 ERROR (MainThread) [component] [extra] Message"
+# Log line pattern from Supervisor API: "WARNING homeassistant.components.foo - message"
 LOG_PATTERN = re.compile(
-    r"^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}(?:\.\d+)?)\s+"
-    r"(DEBUG|INFO|WARNING|ERROR|CRITICAL)\s+"
-    r"\(([^)]+)\)\s+"
-    r"\[([^\]]+)\]\s*"
+    r"^(DEBUG|INFO|WARNING|ERROR|CRITICAL)\s+"
+    r"([^\s]+)\s+-\s+"
     r"(.*)$"
 )
 
@@ -74,7 +71,8 @@ class Issue:
     """A triaged log issue."""
 
     def __init__(self, severity: str, component: str, message: str, timestamp: str):
-        self.id = f"issue-{hash((component, message[:50])) % 100000:05d}"
+        hash_input = f"{component}:{message[:50]}".encode()
+        self.id = f"issue-{md5(hash_input).hexdigest()[:8]}"
         self.severity = severity.lower()
         self.component = component
         self.message = message
@@ -156,11 +154,6 @@ class LogWatcher:
 
     def _load_state(self):
         """Load previous state."""
-        # Start fresh to debug log format (temporary)
-        logger.info("Starting with fresh state (debug mode)")
-        self.seen_lines = set()
-        return
-        # Normal state loading (disabled for debugging)
         if STATE_PATH.exists():
             try:
                 state = json.loads(STATE_PATH.read_text())
@@ -253,13 +246,16 @@ class LogWatcher:
                 continue
 
             matched_lines += 1
-            timestamp, severity, thread, component, message = match.groups()
+            severity, component, message = match.groups()
             severity_level = SEVERITY_LEVELS.get(severity.lower(), 3)
 
             # Filter by threshold
             if severity_level > self.severity_threshold:
                 severity_filtered += 1
                 continue
+
+            # Use current time as timestamp since Supervisor API logs don't include it
+            timestamp = datetime.now().isoformat()
 
             # Deduplicate
             key = self._issue_key(component, message)

@@ -52,13 +52,65 @@ response: none
 Content here.
 ```
 
+### Message Types & Response Field
+
+| Type | Use |
+|------|-----|
+| `intro` | New agent introduction (broadcast to `agent-sync/intro/{agent-id}`) |
+| `handoff` | Passing work or context |
+| `question` | Requesting information |
+| `update` | Status update |
+| `ack` | Acknowledging receipt |
+
+| Response | Meaning |
+|----------|---------|
+| `required` | Blocked, need answer |
+| `optional` | Feedback welcome, will proceed if none |
+| `none` | Informational only (default) |
+
+### Multi-Recipient Support
+
+```yaml
+to: major-tom              # single recipient
+to: major-tom, gca         # comma-separated
+to: [major-tom, gca]       # YAML array
+to: all                    # broadcast to all known agents
+```
+
 ### Your Topics
 
 | Direction | Topic |
 |-----------|-------|
-| Send to MT | `agent-sync/lja-to-major-tom/{msg-id}` |
-| Send to GCA | `agent-sync/lja-to-gca/{msg-id}` |
-| Receive | `agent-sync/*-to-lja/+` |
+| Send to recipient | `agent-sync/lja-to-{recipient}/{msg-id}` |
+| Intro broadcast | `agent-sync/intro/lja` |
+| Receive | `agent-sync/#` (filtered for `-to-lja/` or `intro/`) |
+
+---
+
+## Services from Other Agents
+
+### Major Tom: Addon Log Fetching
+
+MT can fetch Lumberjacker's runtime logs from the Supervisor API. Useful for debugging the addon once deployed.
+
+**Request format:**
+
+```yaml
+---
+from: lja
+to: major-tom
+subject: Log request
+type: question
+---
+
+# Log Request
+
+addon: {addon_slug}
+lines: 100
+filter: ERROR    # optional - grep for keyword
+```
+
+MT will fetch logs via `GET http://supervisor/addons/{slug}/logs` and reply with the output.
 
 ---
 

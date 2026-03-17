@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.0
+
+- **BREAKING**: Fix log pattern regex to match actual Supervisor API format
+  - Old: `TIMESTAMP LEVEL (Thread) [component] message`
+  - New: `LEVEL component - message`
+- Remove debug mode that was preventing state persistence
+- Fix issue ID generation to use deterministic MD5 hash (consistent across restarts)
+- Issues now properly persist and deduplicate across addon restarts
+
 ## 0.2.3
 
 - DEBUG: Log sample lines at INFO level to see actual log format
