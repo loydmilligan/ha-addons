@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.1
+
+- Add `hassio_role: homeassistant` to fix 403 error on Supervisor API
+
 ## 0.2.0
 
 - Switch from file-based log reading to Supervisor API
