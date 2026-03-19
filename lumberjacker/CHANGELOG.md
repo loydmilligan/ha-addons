@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.4
+
+- Issues now persist across addon restarts
+  - Loads issues from `issues.json` on startup
+  - Preserves counts, AI triage status, and dismissed state
+- Added "Run AI Triage" button to web UI
+  - Only shows when AI triage is enabled
+  - Shows feedback on completion (issues triaged count)
+
 ## 0.4.3
 
 - Fix AI triage timing bug: initial delay now waits for first watcher cycle

@@ -203,6 +203,18 @@ class LogWatcher:
             except Exception:
                 pass
 
+        # Restore issues from output file
+        if OUTPUT_PATH.exists():
+            try:
+                output_data = json.loads(OUTPUT_PATH.read_text())
+                for issue_dict in output_data.get("issues", []):
+                    issue = Issue.from_dict(issue_dict)
+                    key = self._issue_key(issue.component, issue.message)
+                    self.issues[key] = issue
+                logger.info(f"Restored {len(self.issues)} issues from previous run")
+            except Exception as e:
+                logger.warning(f"Failed to restore issues: {e}")
+
     def _save_state(self):
         """Save current state."""
         STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -414,6 +426,9 @@ class WebServer:
                 .empty { color: #888; font-style: italic; padding: 2rem; text-align: center; }
                 .refresh-btn { background: #e94560; border: none; color: white; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; margin-bottom: 1rem; }
                 .refresh-btn:hover { background: #d63050; }
+                .triage-btn { background: #4caf50; border: none; color: white; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; margin-bottom: 1rem; margin-left: 0.5rem; }
+                .triage-btn:hover { background: #388e3c; }
+                .triage-btn:disabled { background: #555; cursor: not-allowed; }
                 .status { color: #888; font-size: 0.8rem; margin-bottom: 1rem; }
             </style>
         </head>
@@ -421,6 +436,7 @@ class WebServer:
             <h1>Lumberjacker</h1>
             <p class="subtitle">HA Log Triage System (via Supervisor API)</p>
             <button class="refresh-btn" onclick="refresh()">Refresh Now</button>
+            <button class="triage-btn" id="triageBtn" onclick="runTriage()" style="display:none;">Run AI Triage</button>
             <div class="status" id="status"></div>
             <div class="stats" id="stats"></div>
             <div class="issues" id="issues"></div>
@@ -468,7 +484,47 @@ class WebServer:
                     await loadIssues();
                 }
 
+                async function runTriage() {
+                    const btn = document.getElementById('triageBtn');
+                    btn.disabled = true;
+                    btn.textContent = 'Triaging...';
+                    document.getElementById('status').textContent = 'Running AI triage...';
+
+                    try {
+                        const res = await fetch('api/triage', {method: 'POST'});
+                        const data = await res.json();
+
+                        if (data.error) {
+                            document.getElementById('status').textContent = `Error: ${data.error}`;
+                        } else if (data.status === 'no_issues') {
+                            document.getElementById('status').textContent = 'No untriaged issues found.';
+                        } else {
+                            document.getElementById('status').textContent = `AI triage completed: ${data.triaged} issues triaged, ${data.tasks_created} tasks created.`;
+                        }
+
+                        await loadIssues();
+                    } catch (err) {
+                        document.getElementById('status').textContent = `Error: ${err.message}`;
+                    } finally {
+                        btn.disabled = false;
+                        btn.textContent = 'Run AI Triage';
+                    }
+                }
+
+                async function checkTriageStatus() {
+                    try {
+                        const res = await fetch('api/triage/status');
+                        const data = await res.json();
+                        if (data.enabled) {
+                            document.getElementById('triageBtn').style.display = 'inline-block';
+                        }
+                    } catch (err) {
+                        console.error('Failed to check triage status:', err);
+                    }
+                }
+
                 loadIssues();
+                checkTriageStatus();
                 setInterval(loadIssues, 30000);
             </script>
         </body>
