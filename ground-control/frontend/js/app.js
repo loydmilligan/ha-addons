@@ -9,6 +9,11 @@ class GroundControl {
             projects: {},
             task_count: {},
         };
+        this.agentTasks = {
+            pending: [],
+            completed: [],
+            status: { connected: false },
+        };
         this.ws = null;
         this.currentView = 'kanban';
         this.editingTask = null;
@@ -22,6 +27,7 @@ class GroundControl {
         this.setupEventListeners();
         this.setupDragAndDrop();
         this.loadVersion();
+        this.loadAgentTasks();
     }
 
     async loadVersion() {
@@ -35,6 +41,18 @@ class GroundControl {
             }
         } catch (error) {
             console.error('Failed to load version:', error);
+        }
+    }
+
+    async loadAgentTasks() {
+        try {
+            const response = await fetch('api/agent-tasks');
+            const data = await response.json();
+            this.agentTasks = data;
+            this.renderAgentTasks();
+            this.updateAgentTasksBadge();
+        } catch (error) {
+            console.error('Failed to load agent tasks:', error);
         }
     }
 
@@ -80,6 +98,10 @@ class GroundControl {
             case 'task_deleted':
                 // Request full state refresh
                 this.ws.send(JSON.stringify({ type: 'refresh' }));
+                break;
+            case 'agent_task_updated':
+                // Refresh agent tasks
+                this.loadAgentTasks();
                 break;
         }
     }
@@ -449,6 +471,137 @@ class GroundControl {
         }
 
         this.closeModal();
+    }
+
+    // Agent Tasks
+    renderAgentTasks() {
+        this.renderPendingTasks();
+        this.renderCompletedTasks();
+        this.renderMqttStatus();
+    }
+
+    renderPendingTasks() {
+        const container = document.getElementById('pending-tasks-list');
+        const tasks = this.agentTasks.pending || [];
+
+        if (!tasks.length) {
+            container.innerHTML = '<div class="empty-state">No pending tasks</div>';
+            return;
+        }
+
+        container.innerHTML = tasks.map(task => `
+            <div class="agent-task-card pending" data-task-id="${task.task_id}">
+                <div class="agent-task-header">
+                    <span class="agent-task-id">${task.task_id}</span>
+                    <span class="agent-task-from">from ${task.requesting_agent}</span>
+                    <span class="agent-task-priority ${task.priority}">${task.priority}</span>
+                </div>
+                <div class="agent-task-title">${this.escapeHtml(task.title)}</div>
+                ${task.description ? `<div class="agent-task-desc">${this.escapeHtml(task.description)}</div>` : ''}
+                <div class="agent-task-meta">
+                    <span class="agent-task-category">${task.category}</span>
+                    <span class="agent-task-time">${task.submitted_at || ''}</span>
+                </div>
+                <div class="agent-task-actions">
+                    <button class="btn btn-small btn-approve" onclick="groundControl.approveTask('${task.task_id}')">
+                        ✓ Approve
+                    </button>
+                    <button class="btn btn-small btn-reject" onclick="groundControl.rejectTask('${task.task_id}')">
+                        ✗ Reject
+                    </button>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    renderCompletedTasks() {
+        const container = document.getElementById('completed-tasks-list');
+        const tasks = this.agentTasks.completed || [];
+
+        if (!tasks.length) {
+            container.innerHTML = '<div class="empty-state">No recent tasks</div>';
+            return;
+        }
+
+        container.innerHTML = tasks.slice(0, 10).map(task => `
+            <div class="agent-task-card ${task.status}">
+                <div class="agent-task-header">
+                    <span class="agent-task-id">${task.task_id}</span>
+                    <span class="agent-task-status ${task.status}">${task.status}</span>
+                </div>
+                <div class="agent-task-title">${this.escapeHtml(task.title)}</div>
+                <div class="agent-task-meta">
+                    <span class="agent-task-from">from ${task.requesting_agent}</span>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    renderMqttStatus() {
+        const statusEl = document.getElementById('mqtt-status');
+        if (!statusEl) return;
+
+        const status = this.agentTasks.status || {};
+        const dot = statusEl.querySelector('.status-dot');
+        const text = statusEl.querySelector('.status-text');
+
+        if (status.connected) {
+            dot.className = 'status-dot connected';
+            text.textContent = `Connected (${status.pending_count || 0} pending)`;
+        } else {
+            dot.className = 'status-dot disconnected';
+            text.textContent = 'Disconnected';
+        }
+    }
+
+    updateAgentTasksBadge() {
+        const badge = document.getElementById('agent-tasks-badge');
+        if (!badge) return;
+
+        const count = (this.agentTasks.pending || []).length;
+        badge.textContent = count;
+        badge.classList.toggle('hidden', count === 0);
+    }
+
+    async approveTask(taskId) {
+        try {
+            const response = await fetch(`api/agent-tasks/${taskId}/approve`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+            });
+
+            if (response.ok) {
+                await this.loadAgentTasks();
+            } else {
+                const error = await response.json();
+                alert(error.error || 'Failed to approve task');
+            }
+        } catch (error) {
+            console.error('Error approving task:', error);
+            alert('Failed to approve task');
+        }
+    }
+
+    async rejectTask(taskId) {
+        const reason = prompt('Rejection reason (optional):');
+
+        try {
+            const response = await fetch(`api/agent-tasks/${taskId}/reject`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ reason: reason || '' }),
+            });
+
+            if (response.ok) {
+                await this.loadAgentTasks();
+            } else {
+                const error = await response.json();
+                alert(error.error || 'Failed to reject task');
+            }
+        } catch (error) {
+            console.error('Error rejecting task:', error);
+            alert('Failed to reject task');
+        }
     }
 
     // Utilities

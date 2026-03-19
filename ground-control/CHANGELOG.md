@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.12
+
+- Add Agent Tasks tab for MQTT-based task approvals
+- MQTT client subscribes to `agent-sync/tasks/pending`
+- Approve/reject buttons publish status to `agent-sync/tasks/status/{task_id}`
+- Real-time updates via WebSocket
+- Badge shows pending task count
+
 ## 0.1.11
 
 - History tab now defaults to newest first

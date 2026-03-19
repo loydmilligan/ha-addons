@@ -23,6 +23,7 @@ from writer import (
     archive_project,
 )
 from watcher import TasksWatcher
+from mqtt_client import MQTTTaskClient
 
 # Configure logging
 logging.basicConfig(
@@ -39,12 +40,13 @@ CONFIG_PATHS = [
     "/share",
 ]
 
-VERSION = "0.1.11"
+VERSION = "0.1.12"
 
 # Global state
 state: TaskState = TaskState()
 websocket_clients: Set[web.WebSocketResponse] = set()
 watcher: TasksWatcher = None
+mqtt_client: MQTTTaskClient = None
 tasks_path: str = "/config/.tasks"
 
 
@@ -486,6 +488,52 @@ async def api_archive_project(request: web.Request) -> web.Response:
     return web.json_response({"success": True})
 
 
+# --- Agent Tasks API Routes ---
+
+
+async def api_get_agent_tasks(request: web.Request) -> web.Response:
+    """Get pending agent tasks."""
+    if not mqtt_client:
+        return web.json_response({"pending": [], "completed": [], "status": {"connected": False}})
+    return web.json_response({
+        "pending": mqtt_client.get_pending_tasks(),
+        "completed": mqtt_client.get_completed_tasks(),
+        "status": mqtt_client.get_status(),
+    })
+
+
+async def api_approve_task(request: web.Request) -> web.Response:
+    """Approve an agent task."""
+    task_id = request.match_info.get("id", "")
+    if not mqtt_client:
+        return web.json_response({"error": "MQTT not connected"}, status=503)
+
+    success = mqtt_client.approve_task(task_id)
+    if success:
+        await broadcast({"type": "agent_task_updated"})
+        return web.json_response({"success": True, "task_id": task_id})
+    return web.json_response({"error": "Task not found"}, status=404)
+
+
+async def api_reject_task(request: web.Request) -> web.Response:
+    """Reject an agent task."""
+    task_id = request.match_info.get("id", "")
+    if not mqtt_client:
+        return web.json_response({"error": "MQTT not connected"}, status=503)
+
+    try:
+        data = await request.json()
+        reason = data.get("reason", "")
+    except:
+        reason = ""
+
+    success = mqtt_client.reject_task(task_id, reason=reason)
+    if success:
+        await broadcast({"type": "agent_task_updated"})
+        return web.json_response({"success": True, "task_id": task_id})
+    return web.json_response({"error": "Task not found"}, status=404)
+
+
 # --- Application Setup ---
 
 
@@ -515,12 +563,17 @@ def create_app() -> web.Application:
     app.router.add_put("/api/projects/{slug}", api_update_project)
     app.router.add_delete("/api/projects/{slug}", api_archive_project)
 
+    # Agent task routes
+    app.router.add_get("/api/agent-tasks", api_get_agent_tasks)
+    app.router.add_post("/api/agent-tasks/{id}/approve", api_approve_task)
+    app.router.add_post("/api/agent-tasks/{id}/reject", api_reject_task)
+
     return app
 
 
 async def on_startup(app: web.Application):
     """Initialize on application startup."""
-    global state, watcher, tasks_path
+    global state, watcher, mqtt_client, tasks_path
 
     logger.info("=" * 60)
     logger.info(f"Ground Control v{VERSION} starting up")
@@ -560,10 +613,20 @@ async def on_startup(app: web.Application):
     watcher = TasksWatcher(tasks_path, reload_state)
     watcher.start(asyncio.get_event_loop())
 
+    # Start MQTT client for agent tasks
+    async def on_mqtt_update():
+        await broadcast({"type": "agent_task_updated"})
+
+    mqtt_client = MQTTTaskClient(on_tasks_update=on_mqtt_update)
+    mqtt_client.start(asyncio.get_event_loop())
+
 
 async def on_cleanup(app: web.Application):
     """Cleanup on application shutdown."""
-    global watcher
+    global watcher, mqtt_client
+
+    if mqtt_client:
+        mqtt_client.stop()
 
     if watcher:
         watcher.stop()

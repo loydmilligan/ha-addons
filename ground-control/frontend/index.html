@@ -14,13 +14,17 @@
             <div class="header-left">
                 <span class="logo">🚀</span>
                 <h1>Ground Control</h1>
-                <span class="version-badge" id="version-badge">v0.1.11</span>
+                <span class="version-badge" id="version-badge">v0.1.12</span>
             </div>
             <div class="header-right">
                 <div class="view-tabs">
                     <button class="tab active" data-view="kanban">Kanban</button>
                     <button class="tab" data-view="projects">Projects</button>
                     <button class="tab" data-view="history">History</button>
+                    <button class="tab" data-view="agents">
+                        <span id="agent-tasks-badge" class="tab-badge hidden">0</span>
+                        Agent Tasks
+                    </button>
                 </div>
                 <button class="btn btn-primary" id="new-task-btn">+ New Task</button>
             </div>
@@ -92,6 +96,31 @@
                     </button>
                 </div>
                 <div class="history-list" id="history-list"></div>
+            </div>
+
+            <!-- Agent Tasks View -->
+            <div id="agents-view" class="view">
+                <div class="agent-tasks-header">
+                    <h2>Agent Task Approvals</h2>
+                    <span class="mqtt-status" id="mqtt-status">
+                        <span class="status-dot disconnected"></span>
+                        <span class="status-text">Disconnected</span>
+                    </span>
+                </div>
+
+                <div class="agent-tasks-section">
+                    <h3>Pending Approval</h3>
+                    <div class="agent-tasks-list" id="pending-tasks-list">
+                        <div class="empty-state">No pending tasks</div>
+                    </div>
+                </div>
+
+                <div class="agent-tasks-section">
+                    <h3>Recently Processed</h3>
+                    <div class="agent-tasks-list completed" id="completed-tasks-list">
+                        <div class="empty-state">No recent tasks</div>
+                    </div>
+                </div>
             </div>
         </main>
 
