@@ -1,6 +1,6 @@
 /**
  * Lyric Scroll - Frontend Application
- * Version: 0.3.5
+ * Version: 0.5.18
  */
 
 class LyricScroll {
@@ -238,7 +238,7 @@ class LyricScroll {
             wsUrl = `${protocol}//${window.location.host}/ws`;
         }
 
-        console.log('Lyric Scroll v0.3.5 - Connecting to WebSocket:', wsUrl);
+        console.log('Lyric Scroll v0.5.18 - Connecting to WebSocket:', wsUrl);
         console.log('Location:', window.location.href);
 
         try {
@@ -314,12 +314,21 @@ class LyricScroll {
     }
 
     handleLyrics(data) {
-        // Stop any existing position tracking
-        this.stopPositionTracking();
-        this.currentLineIndex = -1;
-        // Reset position state to prevent using stale data from previous song
-        this.lastPositionMs = 0;
-        this.lastPositionTime = 0;
+        // Check if this is the same track
+        const isSameTrack = this.currentTrack &&
+            this.currentTrack.title === data.track?.title &&
+            this.currentTrack.artist === data.track?.artist;
+
+        // Only reset position for NEW tracks
+        if (!isSameTrack) {
+            this.stopPositionTracking();
+            this.currentLineIndex = -1;
+            this.lastPositionMs = 0;
+            this.lastPositionTime = 0;
+        }
+
+        // Update current track reference
+        this.currentTrack = data.track;
 
         this.lyrics = data.lyrics || [];
         this.trackTitle.textContent = data.track?.title || '-';
