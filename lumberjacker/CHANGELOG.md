@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.2
+
+- Run AI triage 30 seconds after startup instead of waiting full interval
+  - Better for testing and immediate feedback on new issues
+
 ## 0.4.1
 
 - Fix empty error message in AI triage failure logging
