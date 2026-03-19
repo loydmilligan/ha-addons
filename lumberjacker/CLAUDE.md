@@ -167,7 +167,9 @@ The addon writes triaged issues to `/share/lumberjacker/issues.json`:
 2. Update version in `config.yaml`
 3. Update `CHANGELOG.md`
 4. Commit: `"Description (vX.Y.Z)"`
-5. Push to trigger HA addon refresh
+5. **Push immediately** to trigger HA addon refresh
+
+**IMPORTANT:** Always commit AND push after making changes. The user expects changes to be deployed, not just saved locally.
 
 ## Current State
 
