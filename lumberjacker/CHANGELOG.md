@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.2
+
+- Strip ANSI color codes from Supervisor API log output
+  - Color codes at start of lines were breaking regex pattern matching
+
 ## 0.3.1
 
 - Fix log pattern regex to match actual HA log format with timestamps

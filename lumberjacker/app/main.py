@@ -15,6 +15,9 @@ from hashlib import md5
 from pathlib import Path
 
 import aiohttp
+
+# Pattern to strip ANSI color codes from log lines
+ANSI_ESCAPE = re.compile(r'\x1b\[[0-9;]*m')
 from aiohttp import web
 
 # Configure logging
@@ -226,6 +229,9 @@ class LogWatcher:
             line = line.strip()
             if not line:
                 continue
+
+            # Strip ANSI color codes
+            line = ANSI_ESCAPE.sub('', line)
 
             lines_processed += 1
 
