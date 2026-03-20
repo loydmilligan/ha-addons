@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.5.0
+
+### Triage Review System
+
+A structured review process for validating AI triage decisions.
+
+**New Features:**
+- **Structured triage log** - All AI triage decisions saved to `/share/lumberjacker/triage-log.json` with full context (issue, decision, reasoning)
+- **Review skill** - `/review-triage` skill for step-by-step evaluation of triage decisions
+- **Rubric-based assessment** - Evaluate priority accuracy, category fit, actionability, reasoning quality
+- **Tagging system** - Tag items for process improvement (`process-review`, `prompt-tuning`, `pattern-missing`, etc.)
+- **Process improvement tracking** - Record and track decisions to improve the triage system
+
+**New API Endpoints:**
+- `GET /api/triage-log` - Fetch triage log with filters (reviewed, batch_id, tag)
+- `POST /api/triage-log/{id}/review` - Submit review verdict and rubric scores
+- `GET /api/process-improvements` - List improvement items grouped by type
+- `POST /api/process-improvements` - Record new improvement decisions
+
+**Review Workflow:**
+1. Run AI triage on issues
+2. Use `/review-triage` to review decisions
+3. Quick scan with go/no-go for each item
+4. Deep review with rubric for flagged items
+5. Tag for process improvement
+6. Run process improvement sessions to tune the system
+
 ## 0.4.6
 
 - Fix AI triage timeout when processing many issues

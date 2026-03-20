@@ -39,6 +39,10 @@ STATE_PATH = Path("/data/lumberjacker_state.json")
 SUPERVISOR_URL = "http://supervisor/core/logs"
 SUPERVISOR_TOKEN = os.environ.get("SUPERVISOR_TOKEN", "")
 
+# Triage review paths
+TRIAGE_LOG_PATH = Path("/share/lumberjacker/triage-log.json")
+PROCESS_IMPROVEMENTS_PATH = Path("/share/lumberjacker/process-improvements.json")
+
 
 def load_options():
     """Load addon options from HA."""
@@ -390,6 +394,11 @@ class WebServer:
         self.app.router.add_post("/api/triage", self.handle_triage)
         self.app.router.add_get("/api/triage/status", self.handle_triage_status)
         self.app.router.add_post("/api/test-issues", self.handle_test_issues)
+        # Triage review endpoints
+        self.app.router.add_get("/api/triage-log", self.handle_get_triage_log)
+        self.app.router.add_post("/api/triage-log/{triage_id}/review", self.handle_review_triage)
+        self.app.router.add_get("/api/process-improvements", self.handle_get_process_improvements)
+        self.app.router.add_post("/api/process-improvements", self.handle_add_process_improvement)
 
     async def handle_index(self, request):
         """Serve main UI."""
@@ -662,6 +671,194 @@ class WebServer:
         return web.json_response({
             "status": "created",
             "count": created,
+        })
+
+    async def handle_get_triage_log(self, request):
+        """API: Get triage log with optional filters."""
+        # Read triage log
+        if not TRIAGE_LOG_PATH.exists():
+            return web.json_response({"entries": []})
+
+        try:
+            triage_log = json.loads(TRIAGE_LOG_PATH.read_text())
+        except Exception as e:
+            logger.error(f"Failed to read triage log: {e}")
+            return web.json_response({"error": "Failed to read triage log"}, status=500)
+
+        # Extract query parameters
+        reviewed = request.query.get("reviewed")  # "true", "false", "all"
+        batch_id = request.query.get("batch_id")
+        tag = request.query.get("tag")
+
+        # Filter entries
+        entries = triage_log.get("entries", [])
+        filtered = []
+
+        for entry in entries:
+            # Filter by reviewed status
+            if reviewed == "true" and not entry.get("reviewed", False):
+                continue
+            if reviewed == "false" and entry.get("reviewed", False):
+                continue
+
+            # Filter by batch_id
+            if batch_id and entry.get("batch_id") != batch_id:
+                continue
+
+            # Filter by tag
+            if tag and tag not in entry.get("tags", []):
+                continue
+
+            filtered.append(entry)
+
+        return web.json_response({"entries": filtered})
+
+    async def handle_review_triage(self, request):
+        """API: Update triage entry with review data."""
+        triage_id = request.match_info["triage_id"]
+
+        # Parse request body
+        try:
+            review_data = await request.json()
+        except Exception:
+            return web.json_response({"error": "Invalid JSON"}, status=400)
+
+        # Validate required fields
+        if "verdict" not in review_data:
+            return web.json_response({"error": "Missing 'verdict' field"}, status=400)
+
+        valid_verdicts = ["correct", "minor_issues", "incorrect", "needs_tuning"]
+        if review_data["verdict"] not in valid_verdicts:
+            return web.json_response({"error": f"Invalid verdict. Must be one of: {valid_verdicts}"}, status=400)
+
+        # Load triage log
+        if not TRIAGE_LOG_PATH.exists():
+            return web.json_response({"error": "Triage log not found"}, status=404)
+
+        try:
+            triage_log = json.loads(TRIAGE_LOG_PATH.read_text())
+        except Exception as e:
+            logger.error(f"Failed to read triage log: {e}")
+            return web.json_response({"error": "Failed to read triage log"}, status=500)
+
+        # Find and update the entry
+        entries = triage_log.get("entries", [])
+        entry_found = False
+
+        for entry in entries:
+            if entry.get("triage_id") == triage_id:
+                # Update with review data
+                entry["reviewed"] = True
+                entry["reviewed_at"] = datetime.now().isoformat()
+                entry["verdict"] = review_data["verdict"]
+
+                if "rubric" in review_data:
+                    entry["rubric"] = review_data["rubric"]
+
+                if "notes" in review_data:
+                    entry["notes"] = review_data["notes"]
+
+                if "tags" in review_data:
+                    # Merge tags
+                    existing_tags = entry.get("tags", [])
+                    new_tags = review_data["tags"]
+                    entry["tags"] = list(set(existing_tags + new_tags))
+
+                entry_found = True
+                break
+
+        if not entry_found:
+            return web.json_response({"error": "Triage entry not found"}, status=404)
+
+        # Write back to file
+        try:
+            TRIAGE_LOG_PATH.write_text(json.dumps(triage_log, indent=2))
+        except Exception as e:
+            logger.error(f"Failed to write triage log: {e}")
+            return web.json_response({"error": "Failed to save review"}, status=500)
+
+        return web.json_response({
+            "status": "updated",
+            "triage_id": triage_id,
+        })
+
+    async def handle_get_process_improvements(self, request):
+        """API: Get process improvement items grouped by tag."""
+        if not PROCESS_IMPROVEMENTS_PATH.exists():
+            return web.json_response({"improvements": [], "by_tag": {}})
+
+        try:
+            data = json.loads(PROCESS_IMPROVEMENTS_PATH.read_text())
+        except Exception as e:
+            logger.error(f"Failed to read process improvements: {e}")
+            return web.json_response({"error": "Failed to read process improvements"}, status=500)
+
+        improvements = data.get("improvements", [])
+
+        # Group by improvement_type
+        by_tag = {}
+        for item in improvements:
+            improvement_type = item.get("improvement_type", "unknown")
+            if improvement_type not in by_tag:
+                by_tag[improvement_type] = []
+            by_tag[improvement_type].append(item)
+
+        return web.json_response({
+            "improvements": improvements,
+            "by_tag": by_tag,
+            "total": len(improvements),
+        })
+
+    async def handle_add_process_improvement(self, request):
+        """API: Record a process improvement decision."""
+        try:
+            improvement_data = await request.json()
+        except Exception:
+            return web.json_response({"error": "Invalid JSON"}, status=400)
+
+        # Validate required fields
+        required = ["improvement_type", "description"]
+        for field in required:
+            if field not in improvement_data:
+                return web.json_response({"error": f"Missing '{field}' field"}, status=400)
+
+        valid_types = ["prompt_change", "pattern_add", "pattern_fix", "documentation"]
+        if improvement_data["improvement_type"] not in valid_types:
+            return web.json_response({"error": f"Invalid improvement_type. Must be one of: {valid_types}"}, status=400)
+
+        # Set defaults
+        improvement_data.setdefault("status", "proposed")
+        improvement_data.setdefault("priority", "medium")
+        improvement_data.setdefault("related_triage_ids", [])
+        improvement_data["created_at"] = datetime.now().isoformat()
+
+        # Generate ID
+        improvement_data["id"] = f"pi-{md5(improvement_data['description'].encode()).hexdigest()[:8]}"
+
+        # Load or create process improvements file
+        if PROCESS_IMPROVEMENTS_PATH.exists():
+            try:
+                data = json.loads(PROCESS_IMPROVEMENTS_PATH.read_text())
+            except Exception as e:
+                logger.error(f"Failed to read process improvements: {e}")
+                return web.json_response({"error": "Failed to read existing data"}, status=500)
+        else:
+            data = {"improvements": []}
+
+        # Append new improvement
+        data["improvements"].append(improvement_data)
+
+        # Write to file
+        try:
+            PROCESS_IMPROVEMENTS_PATH.parent.mkdir(parents=True, exist_ok=True)
+            PROCESS_IMPROVEMENTS_PATH.write_text(json.dumps(data, indent=2))
+        except Exception as e:
+            logger.error(f"Failed to write process improvements: {e}")
+            return web.json_response({"error": "Failed to save improvement"}, status=500)
+
+        return web.json_response({
+            "status": "created",
+            "id": improvement_data["id"],
         })
 
 

@@ -173,7 +173,7 @@ The addon writes triaged issues to `/share/lumberjacker/issues.json`:
 
 ## Current State
 
-**Version:** 0.1.0
+**Version:** 0.5.0
 
 **Implemented:**
 - [x] Log parsing with regex
@@ -184,34 +184,91 @@ The addon writes triaged issues to `/share/lumberjacker/issues.json`:
 - [x] Output to `/share/lumberjacker/issues.json`
 - [x] Web UI with stats and issue list
 - [x] MQTT sync infrastructure
+- [x] AI triage via OpenRouter API
+- [x] MQTT task publishing to Ground Control
+- [x] Triage review system with `/review-triage` skill
 
 **TODO:**
-- [ ] Test with real HA logs
-- [ ] Tune categorization rules
+- [ ] Tune categorization rules based on review findings
 - [ ] Add more critical patterns
 - [ ] Suggested actions for common issues
+
+---
+
+## Triage Review System
+
+A structured review process for validating AI triage decisions.
+
+### Files
+
+| File | Purpose |
+|------|---------|
+| `/share/lumberjacker/triage-log.json` | All triage decisions with context |
+| `/share/lumberjacker/process-improvements.json` | Recorded improvement decisions |
+| `.claude/skills/review-triage.md` | The review skill definition |
+
+### API Endpoints
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/api/triage-log` | GET | Fetch triage log (filters: reviewed, batch_id, tag) |
+| `/api/triage-log/{id}/review` | POST | Submit review verdict and rubric |
+| `/api/process-improvements` | GET | List improvements grouped by type |
+| `/api/process-improvements` | POST | Record new improvement decision |
+
+### Review Workflow
+
+1. **Run AI triage** on issues
+2. **Use `/review-triage`** to start review session
+3. **Quick scan** each item (go/no-go for deep review)
+4. **Deep review** with rubric for flagged items
+5. **Tag** items for process improvement
+6. **Process improvement sessions** to tune the system
+
+### Tags
+
+| Tag | Use |
+|-----|-----|
+| `process-review` | Discuss in improvement session |
+| `prompt-tuning` | Needs prompt adjustment |
+| `pattern-missing` | Add new detection pattern |
+| `pattern-wrong` | Fix existing pattern |
+| `edge-case` | Unusual situation to document |
+| `model-issue` | Model capability limitation |
+
+### Rubric Criteria
+
+- **Priority accuracy** - correct / too_high / too_low
+- **Category accuracy** - correct / wrong
+- **Actionability** - correct / false_positive / false_negative
+- **Reasoning quality** - sound / flawed / missing_context / irrelevant
+- **Action quality** - helpful / vague / wrong / na
 
 ## Architecture
 
 ```
 lumberjacker/
 ├── .claude/
-│   └── sync/              # MQTT messaging
+│   ├── skills/
+│   │   └── review-triage.md   # Triage review skill
+│   └── sync/                  # MQTT messaging
 │       ├── mqtt-sync.py
-│       ├── .env           # Credentials (gitignored)
+│       ├── .env               # Credentials (gitignored)
 │       ├── inbox/
 │       ├── outbox/
 │       └── archive/
 ├── app/
 │   ├── __init__.py
-│   └── main.py            # LogWatcher + WebServer
+│   ├── main.py                # LogWatcher + WebServer
+│   ├── ai_triage.py           # AI triage engine
+│   └── mqtt_tasks.py          # MQTT task publishing
 ├── config.yaml
 ├── Dockerfile
 ├── requirements.txt
 ├── run.sh
 ├── SPEC.md
 ├── CHANGELOG.md
-└── CLAUDE.md              # This file
+└── CLAUDE.md                  # This file
 ```
 
 ## Quick Start

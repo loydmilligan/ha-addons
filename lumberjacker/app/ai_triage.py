@@ -6,6 +6,7 @@ and determine which should become tasks for Major Tom.
 
 import json
 import logging
+import os
 from datetime import datetime
 from typing import Optional, TYPE_CHECKING
 
@@ -17,6 +18,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
+TRIAGE_LOG_PATH = "/share/lumberjacker/triage-log.json"
 
 SYSTEM_PROMPT = """You are a Home Assistant log triage assistant. Analyze log issues and determine which ones should become tasks for Major Tom (an AI agent that can fix HA problems by editing configuration, automations, and integrations).
 
@@ -87,6 +89,90 @@ class AITriageEngine:
         if self.session and not self.session.closed:
             await self.session.close()
 
+    def _generate_triage_id(self, issue_id: str) -> str:
+        """Generate a unique triage ID.
+
+        Format: tr-{YYYYMMDD}-{HHMMSS}-{first 6 chars of issue id}
+        """
+        now = datetime.now()
+        timestamp = now.strftime("%Y%m%d-%H%M%S")
+        issue_short = issue_id[:6] if len(issue_id) >= 6 else issue_id
+        return f"tr-{timestamp}-{issue_short}"
+
+    def _write_triage_log(self, batch_id: str, issues: list, results: list[dict]):
+        """Write triage decisions to log file.
+
+        Args:
+            batch_id: Identifier for this triage batch
+            issues: List of Issue objects that were triaged
+            results: List of triage result dictionaries from AI
+        """
+        # Ensure directory exists
+        os.makedirs(os.path.dirname(TRIAGE_LOG_PATH), exist_ok=True)
+
+        # Load existing log
+        existing_entries = []
+        if os.path.exists(TRIAGE_LOG_PATH):
+            try:
+                with open(TRIAGE_LOG_PATH, 'r') as f:
+                    existing_entries = json.load(f)
+            except (json.JSONDecodeError, FileNotFoundError):
+                logger.warning(f"Could not load existing triage log, starting fresh")
+                existing_entries = []
+
+        # Create new entries
+        new_entries = []
+        timestamp = datetime.now().isoformat()
+
+        for result in results:
+            issue_id = result.get("issue_id")
+            issue = next((i for i in issues if i.id == issue_id), None)
+            if not issue:
+                continue
+
+            entry = {
+                "triage_id": self._generate_triage_id(issue_id),
+                "timestamp": timestamp,
+                "batch_id": batch_id,
+                "issue": {
+                    "id": issue.id,
+                    "severity": issue.severity,
+                    "category": issue.category,
+                    "component": issue.component,
+                    "message": issue.message,
+                    "count": issue.count,
+                    "first_seen": issue.first_seen,
+                    "last_seen": issue.last_seen,
+                },
+                "decision": {
+                    "actionable": result.get("actionable", False),
+                    "create_task": result.get("create_task", False),
+                    "priority": result.get("priority", "P3"),
+                    "category": result.get("category", "investigation"),
+                    "approval_level": result.get("approval_level", "human"),
+                    "suggested_action": result.get("suggested_action", ""),
+                    "reasoning": result.get("reasoning", ""),
+                },
+                "review": {
+                    "reviewed": False,
+                    "reviewed_at": None,
+                    "verdict": None,
+                    "notes": None,
+                    "tags": [],
+                },
+            }
+            new_entries.append(entry)
+
+        # Append and write back
+        all_entries = existing_entries + new_entries
+
+        try:
+            with open(TRIAGE_LOG_PATH, 'w') as f:
+                json.dump(all_entries, f, indent=2)
+            logger.info(f"Wrote {len(new_entries)} triage log entries to {TRIAGE_LOG_PATH}")
+        except Exception as e:
+            logger.error(f"Failed to write triage log: {e}")
+
     async def triage(self, issues: list) -> list[dict]:
         """Triage a batch of issues using AI.
 
@@ -104,6 +190,9 @@ class AITriageEngine:
             return []
 
         await self._ensure_session()
+
+        # Generate batch ID for this triage run
+        batch_id = datetime.now().strftime("batch-%Y%m%d-%H%M%S")
 
         # Process issues in batches to avoid timeout
         BATCH_SIZE = 10
@@ -159,6 +248,9 @@ class AITriageEngine:
                     # Create task if needed
                     if result.get("create_task") and issue.task_id is None:
                         await self._create_task(issue, result)
+
+                # Write triage log for this batch
+                self._write_triage_log(batch_id, batch, results)
 
                 all_results.extend(results)
                 logger.info(f"Batch {batch_num}/{total_batches} complete: {len(results)} results")
